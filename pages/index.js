@@ -61,7 +61,7 @@ export default function Home() {
               fontSize: "0.85rem" 
             }}>
               <strong>必須スキル:</strong><br />
-              {mail.skills || "記載なし"}
+              <div dangerouslySetInnerHTML={{ __html: mail.skills || "記載なし" }} />
             </div>
             
             {/* 受信日時 */}
