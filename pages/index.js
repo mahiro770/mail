@@ -10,6 +10,8 @@ const decodeHtml = (html) => {
 export default function Home() {
   const [mails, setMails] = useState([]);
   const [loading, setLoading] = useState(true);
+  // --- 追加：現在詳細を表示している案件を管理 ---
+  const [selectedMail, setSelectedMail] = useState(null);
 
   useEffect(() => {
     fetch("/api/mails")
@@ -43,61 +45,26 @@ export default function Home() {
                 boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
                 display: "flex",
                 flexDirection: "column",
-                overflow: "hidden",
-                transition: "transform 0.2s",
-                position: "relative"
+                overflow: "hidden"
               }}>
-                {/* NEWバッジ（任意） */}
-                <div style={{
-                  position: "absolute", top: "15px", right: "15px",
-                  backgroundColor: "#ff4d4f", color: "#fff", padding: "2px 8px",
-                  borderRadius: "4px", fontSize: "0.7rem", fontWeight: "bold"
-                }}>NEW</div>
-
                 <div style={{ padding: "20px", flexGrow: 1 }}>
-                  {/* IDなど */}
-                  <div style={{ fontSize: "0.75rem", color: "#999", marginBottom: "8px" }}>
-                    ID: {mail.id.toString().slice(0, 8)}
-                  </div>
-
-                  {/* タイトル */}
-                  <h2 style={{ 
-                    fontSize: "1.1rem", color: "#003a8c", marginBottom: "20px", 
-                    lineHeight: "1.4", height: "3em", overflow: "hidden" 
-                  }}>
+                  <h2 style={{ fontSize: "1.1rem", color: "#003a8c", marginBottom: "20px", height: "3em", overflow: "hidden" }}>
                     {mail.title || "（タイトルなし）"}
                   </h2>
-
-                  {/* 詳細リスト */}
                   <div style={{ fontSize: "0.9rem", color: "#555" }}>
-                    <div style={{ display: "flex", marginBottom: "8px" }}>
-                      <span style={{ width: "90px", fontWeight: "bold" }}>【勤務地】</span>
-                      <span>{mail.location || "未定"}</span>
-                    </div>
-                    <div style={{ display: "flex", marginBottom: "8px" }}>
-                      <span style={{ width: "90px", fontWeight: "bold" }}>【単価】</span>
-                      <span style={{ color: "#d46b08", fontWeight: "bold" }}>{mail.price || "要確認"}</span>
-                    </div>
-                    <div style={{ marginTop: "15px" }}>
-                      <div style={{ fontWeight: "bold", marginBottom: "5px" }}>【必須スキル】</div>
-                      <div style={{ 
-                        fontSize: "0.85rem", color: "#666", backgroundColor: "#f5f5f5", 
-                        padding: "10px", borderRadius: "6px", height: "80px", overflowY: "auto" 
-                      }}>
-                        {mail.skills ? decodeHtml(mail.skills) : "記載なし"}
-                      </div>
-                    </div>
+                    <p>📍 {mail.location}</p>
+                    <p style={{ color: "#d46b08", fontWeight: "bold" }}>💰 {mail.price}</p>
                   </div>
                 </div>
 
-                {/* 詳細ボタン */}
-                <button style={{
-                  backgroundColor: "#1d39c4", color: "#fff", border: "none",
-                  padding: "12px", width: "100%", fontSize: "0.9rem",
-                  fontWeight: "bold", cursor: "pointer", transition: "0.3s"
-                }}
-                onMouseOver={(e) => e.target.style.backgroundColor = "#2f54eb"}
-                onMouseOut={(e) => e.target.style.backgroundColor = "#1d39c4"}
+                {/* --- 修正：クリック時に selectedMail にデータをセット --- */}
+                <button 
+                  onClick={() => setSelectedMail(mail)}
+                  style={{
+                    backgroundColor: "#1d39c4", color: "#fff", border: "none",
+                    padding: "12px", width: "100%", fontSize: "0.9rem",
+                    fontWeight: "bold", cursor: "pointer"
+                  }}
                 >
                   詳細を見る
                 </button>
@@ -106,6 +73,48 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      {/* --- 詳細表示モーダル --- */}
+      {selectedMail && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, width: "100%", height: "100%",
+          backgroundColor: "rgba(0,0,0,0.6)", display: "flex", justifyContent: "center",
+          alignItems: "center", zIndex: 1000, padding: "20px"
+        }} onClick={() => setSelectedMail(null)}>
+          
+          <div style={{
+            backgroundColor: "#fff", width: "100%", maxWidth: "800px", maxHeight: "90vh",
+            borderRadius: "15px", padding: "40px", overflowY: "auto", position: "relative",
+            boxShadow: "0 10px 30px rgba(0,0,0,0.2)"
+          }} onClick={(e) => e.stopPropagation()}>
+            
+            <button 
+              onClick={() => setSelectedMail(null)}
+              style={{ position: "absolute", top: "20px", right: "20px", fontSize: "1.5rem", border: "none", background: "none", cursor: "pointer" }}
+            >✕</button>
+
+            <div style={{ color: "#0070f3", fontWeight: "bold", marginBottom: "10px" }}>
+              ID: {selectedMail.id}
+            </div>
+            <h2 style={{ fontSize: "1.8rem", color: "#333", borderBottom: "2px solid #0070f3", paddingBottom: "15px", marginBottom: "20px" }}>
+              {selectedMail.title}
+            </h2>
+
+            <div style={{ whiteSpace: "pre-wrap", lineHeight: "1.8", color: "#444", backgroundColor: "#f9f9f9", padding: "20px", borderRadius: "10px" }}>
+              {/* image_f00b59.png の content をここに表示 */}
+              <h3 style={{ marginTop: 0, fontSize: "1.1rem" }}>【メール本文全文】</h3>
+              {selectedMail.content ? decodeHtml(selectedMail.content) : "詳細データはありません"}
+            </div>
+
+            <button 
+              onClick={() => setSelectedMail(null)}
+              style={{ marginTop: "30px", padding: "12px 30px", backgroundColor: "#666", color: "#fff", border: "none", borderRadius: "5px", cursor: "pointer" }}
+            >
+              閉じる
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
