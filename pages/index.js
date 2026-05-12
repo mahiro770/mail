@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-// HTMLエンティティ（&#...;）を普通の文字に戻す関数
+
 const decodeHtml = (html) => {
-  if (typeof window === "undefined") return html; // サーバーサイドでは実行しない
+  if (typeof window === "undefined") return html;
   const txt = document.createElement("textarea");
   txt.innerHTML = html;
   return txt.value;
@@ -9,117 +9,103 @@ const decodeHtml = (html) => {
 
 export default function Home() {
   const [mails, setMails] = useState([]);
-  const [loading, setLoading] = useState(true); // 読み込み中状態を追加
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // API経由でSupabaseのデータを取得
     fetch("/api/mails")
       .then((res) => res.json())
       .then((payload) => {
-        // API側（image_098059.png）は { data, error } を返している
-        if (payload.error) {
-          console.error("Supabaseエラー:", payload.error);
-        } else {
-          // 取得成功：payload.data（配列）をセット
-          setMails(payload.data || []);
-        }
+        if (!payload.error) setMails(payload.data || []);
       })
-      .catch((err) => console.error("ネットワークエラー:", err))
-      .finally(() => setLoading(false)); // 通信完了（成功・失敗問わず）
+      .catch((err) => console.error(err))
+      .finally(() => setLoading(false));
   }, []);
 
   return (
-    <div
-      style={{
-        padding: "40px",
-        fontFamily: "sans-serif",
-        maxWidth: "800px",
-        margin: "0 auto",
-      }}
-    >
-      <h1 style={{ borderBottom: "2px solid #0070f3", paddingBottom: "10px" }}>
-        案件一覧
-      </h1>
+    <div style={{ backgroundColor: "#f4f7f9", minHeight: "100vh", padding: "40px 20px" }}>
+      <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
+        <h1 style={{ textAlign: "center", color: "#333", marginBottom: "40px", fontWeight: "bold" }}>
+          案件一覧
+        </h1>
 
-      {loading ? (
-        <div style={{ textAlign: "center", padding: "50px" }}>
-          読み込み中...
-        </div>
-      ) : mails && mails.length > 0 ? (
-        mails.map((mail) => (
-          <div
-            key={mail.id}
-            style={{
-              padding: "20px",
-              borderBottom: "1px solid #eee",
-              backgroundColor: "#fff",
-              marginBottom: "10px",
-              borderRadius: "8px",
-              boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
-            }}
-          >
-            {/* 案件名を表示 */}
-            <div
-              style={{ fontWeight: "bold", fontSize: "1.2rem", color: "#333" }}
-            >
-              {mail.title || "（タイトルなし）"}
-            </div>
+        {loading ? (
+          <div style={{ textAlign: "center", padding: "50px" }}>読み込み中...</div>
+        ) : (
+          <div style={{ 
+            display: "grid", 
+            gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", 
+            gap: "25px" 
+          }}>
+            {mails.map((mail) => (
+              <div key={mail.id} style={{
+                backgroundColor: "#fff",
+                borderRadius: "12px",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+                display: "flex",
+                flexDirection: "column",
+                overflow: "hidden",
+                transition: "transform 0.2s",
+                position: "relative"
+              }}>
+                {/* NEWバッジ（任意） */}
+                <div style={{
+                  position: "absolute", top: "15px", right: "15px",
+                  backgroundColor: "#ff4d4f", color: "#fff", padding: "2px 8px",
+                  borderRadius: "4px", fontSize: "0.7rem", fontWeight: "bold"
+                }}>NEW</div>
 
-            {/* 送信元アドレス */}
-            <div
-              style={{ fontSize: "0.9rem", color: "#0070f3", marginTop: "5px" }}
-            >
-              送信元: {mail.sender_address || "不明"}
-            </div>
+                <div style={{ padding: "20px", flexGrow: 1 }}>
+                  {/* IDなど */}
+                  <div style={{ fontSize: "0.75rem", color: "#999", marginBottom: "8px" }}>
+                    ID: {mail.id.toString().slice(0, 8)}
+                  </div>
 
-            {/* 勤務地と単価 */}
-            <div
-              style={{ fontSize: "0.9rem", color: "#666", marginTop: "5px" }}
-            >
-              📍 勤務地: {mail.location || "未定"} | 💰 単価:{" "}
-              {mail.price || "応相談"}
-            </div>
+                  {/* タイトル */}
+                  <h2 style={{ 
+                    fontSize: "1.1rem", color: "#003a8c", marginBottom: "20px", 
+                    lineHeight: "1.4", height: "3em", overflow: "hidden" 
+                  }}>
+                    {mail.title || "（タイトルなし）"}
+                  </h2>
 
-            {/* 必須スキル部分 */}
-            <div
-              style={{
-                marginTop: "10px",
-                padding: "10px",
-                backgroundColor: "#f9f9f9",
-                borderRadius: "5px",
-                fontSize: "0.85rem",
-              }}
-            >
-              <strong>必須スキル:</strong>
-              <br />
-              {/* ↓ ここでさっき作った関数を通す */}
-              {mail.skills ? decodeHtml(mail.skills) : "記載なし"}
-            </div>
+                  {/* 詳細リスト */}
+                  <div style={{ fontSize: "0.9rem", color: "#555" }}>
+                    <div style={{ display: "flex", marginBottom: "8px" }}>
+                      <span style={{ width: "90px", fontWeight: "bold" }}>【勤務地】</span>
+                      <span>{mail.location || "未定"}</span>
+                    </div>
+                    <div style={{ display: "flex", marginBottom: "8px" }}>
+                      <span style={{ width: "90px", fontWeight: "bold" }}>【単価】</span>
+                      <span style={{ color: "#d46b08", fontWeight: "bold" }}>{mail.price || "要確認"}</span>
+                    </div>
+                    <div style={{ marginTop: "15px" }}>
+                      <div style={{ fontWeight: "bold", marginBottom: "5px" }}>【必須スキル】</div>
+                      <div style={{ 
+                        fontSize: "0.85rem", color: "#666", backgroundColor: "#f5f5f5", 
+                        padding: "10px", borderRadius: "6px", height: "80px", overflowY: "auto" 
+                      }}>
+                        {mail.skills ? decodeHtml(mail.skills) : "記載なし"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
-            {/* 受信日時 */}
-            <div
-              style={{
-                fontSize: "0.75rem",
-                color: "#999",
-                marginTop: "10px",
-                textAlign: "right",
-              }}
-            >
-              受信日:{" "}
-              {mail.created_at
-                ? new Date(mail.created_at).toLocaleString("ja-JP")
-                : "不明"}
-            </div>
+                {/* 詳細ボタン */}
+                <button style={{
+                  backgroundColor: "#1d39c4", color: "#fff", border: "none",
+                  padding: "12px", width: "100%", fontSize: "0.9rem",
+                  fontWeight: "bold", cursor: "pointer", transition: "0.3s"
+                }}
+                onMouseOver={(e) => e.target.style.backgroundColor = "#2f54eb"}
+                onMouseOut={(e) => e.target.style.backgroundColor = "#1d39c4"}
+                >
+                  詳細を見る
+                </button>
+              </div>
+            ))}
           </div>
-        ))
-      ) : (
-        <div style={{ textAlign: "center", padding: "50px", color: "#666" }}>
-          <p>案件データが読み込めないか、まだ登録されていません。</p>
-          <p style={{ fontSize: "0.8rem" }}>
-            Vercelの環境変数とSupabaseのRLS設定を確認してください。
-          </p>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
