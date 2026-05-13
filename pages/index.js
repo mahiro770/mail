@@ -102,8 +102,6 @@ export default function Home() {
 
                     {/* ラベル付き詳細情報 */}
                     <div style={{ display: "grid", gridTemplateColumns: "85px 1fr", gap: "8px", fontSize: "0.9rem", color: "#555" }}>
-                      <div style={{ fontWeight: "bold" }}>【区分】</div>
-                      <div>開発系</div> {/* 固定値またはDB項目へ */}
                       
                       <div style={{ fontWeight: "bold" }}>【概要】</div>
                       <div style={{ height: "3.6em", overflow: "hidden", textOverflow: "ellipsis" }}>
