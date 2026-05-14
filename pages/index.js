@@ -46,7 +46,7 @@ export default function Home() {
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedPrefs, setSelectedPrefs] = useState([]);
-  const [selectedSkills, setSelectedSkills] = useState([]);
+  const [selectedSkills, setSelectedSkills] = useState([]); // スキル選択用
   const [showFilters, setShowFilters] = useState(false);
   const [stationSuggestions, setStationSuggestions] = useState([]);
   const [isStationLoading, setIsStationLoading] = useState(false);
@@ -165,11 +165,15 @@ export default function Home() {
     if (viewMode === "favorites") return p.favorite;
     if (viewMode === "history") return historyIds.includes(p.id);
 
-    const contentText = (p.title || "") + (p.skills || "") + (p.content || "") + (p.location || "");
-    const matchesSearch = contentText.toLowerCase().includes(searchQuery.toLowerCase());
+    const contentText = ((p.title || "") + (p.skills || "") + (p.content || "") + (p.location || "")).toLowerCase();
+    const matchesSearch = contentText.includes(searchQuery.toLowerCase());
     const matchesPref = selectedPrefs.length === 0 ? true : selectedPrefs.some((pref) => p.location?.includes(pref));
-    const matchesSkill = selectedSkills.length === 0 ? true : selectedSkills.every((skill) => contentText.includes(skill));
+    
+    // スキル検索の修正：選択したスキルがすべて含まれているか
+    const matchesSkill = selectedSkills.length === 0 ? true : selectedSkills.every((skill) => contentText.includes(skill.toLowerCase()));
+    
     const matchesRemote = isRemoteOnly ? p.location?.includes("リモート") || p.title?.includes("リモート") : true;
+    
     return matchesSearch && matchesPref && matchesSkill && matchesRemote;
   });
 
@@ -185,6 +189,7 @@ export default function Home() {
   const toggleSelection = (item, list, setter) => {
     if (list.includes(item)) setter(list.filter((i) => i !== item));
     else setter([...list, item]);
+    setCurrentPage(1); // フィルタを変えたら1ページ目に戻す
   };
 
   const ProjectCard = ({ project }) => (
@@ -197,7 +202,16 @@ export default function Home() {
         <div style={{ display: "flex" }}><span style={{ fontWeight: "bold", minWidth: "80px" }}>【募集人数】</span><span>確認中</span></div>
       </div>
       <div style={{ display: "flex", gap: "8px", marginTop: "20px" }}>
-        <button onClick={() => setSelectedProject(project)} style={{ flex: 1, padding: "10px", backgroundColor: "#1a365d", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold" }}>詳細を見る</button>
+        <button onClick={() => {
+            setSelectedProject(project);
+            const history = JSON.parse(localStorage.getItem("history") || "[]");
+            if (!history.includes(project.id)) {
+              const newHistory = [project.id, ...history].slice(0, 50);
+              localStorage.setItem("history", JSON.stringify(newHistory));
+              setHistoryIds(newHistory);
+            }
+          }} 
+          style={{ flex: 1, padding: "10px", backgroundColor: "#1a365d", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold" }}>詳細を見る</button>
         <button onClick={() => deleteProject(project.id)} style={{ padding: "0 12px", borderRadius: "6px", border: "1px solid #fc8181", color: "#e53e3e", background: "#fff", cursor: "pointer" }}>削除</button>
       </div>
     </div>
@@ -205,7 +219,7 @@ export default function Home() {
 
   return (
     <div style={{ backgroundColor: "#f7fafc", minHeight: "100vh", color: "#2d3748", fontFamily: "sans-serif" }}>
-      {/* ナビゲーション - 左端寄せ */}
+      {/* ナビゲーション */}
       <nav style={{ backgroundColor: "#1a365d", position: "sticky", top: 0, zIndex: 100 }}>
         <div style={{ display: "flex", height: "60px", padding: "0 20px" }}>
           {[
@@ -224,7 +238,7 @@ export default function Home() {
         </div>
       </nav>
 
-      {/* メインレイアウト - 左端寄せ */}
+      {/* メインレイアウト */}
       <div style={{ display: "flex", padding: "40px 20px", gap: "30px", boxSizing: "border-box" }}>
         
         {/* 左サイドバー */}
@@ -275,14 +289,68 @@ export default function Home() {
                 )}
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <button onClick={() => setShowFilters(!showFilters)} style={{ background: "#f8fafc", border: "1px solid #cbd5e0", borderRadius: "6px", padding: "8px 16px", cursor: "pointer", fontSize: "0.85rem" }}>詳細絞り込み {showFilters ? "▲" : "▼"}</button>
-                <label style={{ fontSize: "0.85rem", cursor: "pointer" }}><input type="checkbox" checked={isRemoteOnly} onChange={(e) => setIsRemoteOnly(e.target.checked)} /> リモートのみ</label>
+                <button onClick={() => setShowFilters(!showFilters)} style={{ background: "#f8fafc", border: "1px solid #cbd5e0", borderRadius: "6px", padding: "8px 16px", cursor: "pointer", fontSize: "0.85rem", fontWeight: "bold" }}>
+                  詳細絞り込み {showFilters ? "▲" : "▼"}
+                </button>
+                <label style={{ fontSize: "0.85rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "5px" }}>
+                  <input type="checkbox" checked={isRemoteOnly} onChange={(e) => setIsRemoteOnly(e.target.checked)} /> リモートのみ
+                </label>
               </div>
+
+              {/* 絞り込みパネル */}
               {showFilters && (
                 <div style={{ marginTop: "20px", borderTop: "1px solid #edf2f7", paddingTop: "20px" }}>
-                  <div style={{ marginBottom: "15px", fontSize: "0.75rem", fontWeight: "bold" }}>都道府県</div>
-                  <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "20px" }}>
-                    {prefectures.map(p => <button key={p} onClick={() => toggleSelection(p, selectedPrefs, setSelectedPrefs)} style={{ padding: "4px 10px", borderRadius: "4px", border: "1px solid", backgroundColor: selectedPrefs.includes(p) ? "#3182ce" : "#fff", color: selectedPrefs.includes(p) ? "#fff" : "#4a5568", fontSize: "0.75rem", cursor: "pointer" }}>{p}</button>)}
+                  {/* スキルフィルタ */}
+                  {skillCategories.map((cat) => (
+                    <div key={cat.label} style={{ marginBottom: "20px" }}>
+                      <div style={{ marginBottom: "10px", fontSize: "0.8rem", fontWeight: "bold", color: "#4a5568" }}>{cat.label}</div>
+                      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                        {cat.skills.map(skill => (
+                          <button
+                            key={skill}
+                            onClick={() => toggleSelection(skill, selectedSkills, setSelectedSkills)}
+                            style={{
+                              padding: "6px 12px",
+                              borderRadius: "6px",
+                              border: "1px solid",
+                              borderColor: selectedSkills.includes(skill) ? "#3182ce" : "#e2e8f0",
+                              backgroundColor: selectedSkills.includes(skill) ? "#3182ce" : "#fff",
+                              color: selectedSkills.includes(skill) ? "#fff" : "#4a5568",
+                              fontSize: "0.75rem",
+                              cursor: "pointer",
+                              transition: "all 0.2s"
+                            }}
+                          >
+                            {skill}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+
+                  <div style={{ height: "1px", backgroundColor: "#edf2f7", margin: "20px 0" }} />
+
+                  {/* 都道府県フィルタ */}
+                  <div style={{ marginBottom: "10px", fontSize: "0.8rem", fontWeight: "bold", color: "#4a5568" }}>都道府県</div>
+                  <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                    {prefectures.map(p => (
+                      <button
+                        key={p}
+                        onClick={() => toggleSelection(p, selectedPrefs, setSelectedPrefs)}
+                        style={{
+                          padding: "4px 10px",
+                          borderRadius: "4px",
+                          border: "1px solid",
+                          borderColor: selectedPrefs.includes(p) ? "#3182ce" : "#e2e8f0",
+                          backgroundColor: selectedPrefs.includes(p) ? "#3182ce" : "#fff",
+                          color: selectedPrefs.includes(p) ? "#fff" : "#4a5568",
+                          fontSize: "0.75rem",
+                          cursor: "pointer"
+                        }}
+                      >
+                        {p}
+                      </button>
+                    ))}
                   </div>
                 </div>
               )}
@@ -297,9 +365,13 @@ export default function Home() {
             <div style={{ textAlign: "center", padding: "100px 0" }}>読み込み中...</div>
           ) : (
             <>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "25px" }}>
-                {currentItems.map((p) => <ProjectCard key={p.id} project={p} />)}
-              </div>
+              {filtered.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "50px", color: "#718096" }}>条件に一致する案件が見つかりませんでした。</div>
+              ) : (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "25px" }}>
+                  {currentItems.map((p) => <ProjectCard key={p.id} project={p} />)}
+                </div>
+              )}
               {totalPages > 1 && (
                 <div style={{ display: "flex", justifyContent: "center", gap: "10px", marginTop: "40px" }}>
                   {[...Array(totalPages)].map((_, i) => (
