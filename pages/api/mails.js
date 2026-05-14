@@ -1,22 +1,38 @@
 import { supabase } from '../../lib/supabase'
 
 export default async function handler(req, res) {
-  // GETリクエストのみを許可するガード処理
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method Not Allowed' });
+  // --- 削除処理 (DELETE) を追加 ---
+  if (req.method === 'DELETE') {
+    const { id } = req.query; // クエリパラメータからIDを取得
+
+    if (!id) {
+      return res.status(400).json({ error: 'ID is required' });
+    }
+
+    const { error } = await supabase
+      .from('projects')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    return res.status(200).json({ message: 'Deleted successfully' });
   }
 
-  // image_574e36.png のスキーマに基づき 'projects' テーブルから取得
-  const { data, error } = await supabase
-    .from('projects') 
-    .select('*')
-    // サーバー側で作成日時(created_at)の降順にソートしてレスポンスを速くする
-    .order('created_at', { ascending: false });
+  // GETリクエスト（既存の処理）
+  if (req.method === 'GET') {
+    const { data, error } = await supabase
+      .from('projects') 
+      .select('*')
+      .order('created_at', { ascending: false });
 
-  if (error) {
-    return res.status(500).json({ data: null, error: error.message });
+    if (error) {
+      return res.status(500).json({ data: null, error: error.message });
+    }
+    return res.status(200).json({ data, error: null });
   }
 
-  // 正常レスポンス
-  res.status(200).json({ data, error: null });
+  return res.status(405).json({ error: 'Method Not Allowed' });
 }
