@@ -107,18 +107,15 @@ export default function Home() {
   };
 
   const deleteProject = async (id) => {
-    if (!confirm("この案件を削除してもよろしいですか？\n※データベースからも完全に削除されます。")) return;
+    if (!confirm("この案件を削除してもよろしいですか？")) return;
     try {
       const res = await fetch(`/api/mails?id=${id}`, { method: "DELETE" });
       if (res.ok) {
         setProjects(projects.filter((p) => p.id !== id));
         if (selectedProject?.id === id) setSelectedProject(null);
-      } else {
-        alert("削除に失敗しました。");
       }
     } catch (err) {
       console.error(err);
-      alert("エラーが発生しました。");
     }
   };
 
@@ -150,52 +147,29 @@ export default function Home() {
     localStorage.setItem("favorites", JSON.stringify(favIds));
   };
 
-  const isNewProject = (dateStr) => {
-    if (!dateStr) return false;
-    const projectDate = new Date(dateStr);
-    const now = new Date();
-    const diffHours = (now - projectDate) / (1000 * 60 * 60);
-    return diffHours >= 0 && diffHours <= 24;
-  };
-
-  const extractMemberCountValue = (p) => {
-    const text = p.content || "";
-    const fullMatch = text.match(/募集人数[:：]?\s*([^\n\r]+)/);
-    if (fullMatch) return fullMatch[1].replace(/】/g, "").trim();
-    const simpleMatch = text.match(/([0-9０-９数]+名)/);
-    return simpleMatch ? simpleMatch[1] : "確認中";
-  };
-
   const getProjectCategories = (p) => {
-    const title = (p.title || "").toLowerCase();
-    const content = (p.content || "").toLowerCase();
-    const skills = (p.skills || "").toLowerCase();
-    const allText = title + content + skills;
+    const allText = ((p.title || "") + (p.content || "") + (p.skills || "")).toLowerCase();
     let cats = [];
-    if (allText.match(/java|php|python|ruby|go|c#|react|next\.js|vue\.js|typescript|javascript|フロントエンド|バックエンド|アプリ開発|システム開発/i)) cats.push("dev");
-    if (allText.match(/インフラ|サーバ|ネットワーク|aws|azure|gcp|cloud|仮想化|監視|運用|保守|構築/i)) cats.push("infra");
-    if (allText.match(/組み込み|組込|マイコン|制御|c言語|c\+\+|embedded|回路|ハードウェア/i)) cats.push("embedded");
+    if (allText.match(/java|php|python|ruby|go|c#|react|next\.js|vue\.js|typescript|javascript|フロントエンド|バックエンド|アプリ開発/i)) cats.push("dev");
+    if (allText.match(/インフラ|サーバ|ネットワーク|aws|azure|gcp|cloud|監視|構築/i)) cats.push("infra");
+    if (allText.match(/組み込み|組込|マイコン|制御|c言語|c\+\+|embedded/i)) cats.push("embedded");
     if (cats.length === 0) cats.push("dev");
     return cats;
   };
 
   const filtered = projects.filter((p) => {
-    // サイドバーのカテゴリーフィルターを共通適用
     if (favFilters.length > 0) {
       const pCats = getProjectCategories(p);
       if (!favFilters.every((f) => pCats.includes(f))) return false;
     }
-
     if (viewMode === "favorites") return p.favorite;
     if (viewMode === "history") return historyIds.includes(p.id);
 
-    // 案件検索モード（viewMode === "all"）
     const contentText = (p.title || "") + (p.skills || "") + (p.content || "") + (p.location || "");
     const matchesSearch = contentText.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesPref = selectedPrefs.length === 0 ? true : selectedPrefs.some((pref) => p.location?.includes(pref));
     const matchesSkill = selectedSkills.length === 0 ? true : selectedSkills.every((skill) => contentText.includes(skill));
     const matchesRemote = isRemoteOnly ? p.location?.includes("リモート") || p.title?.includes("リモート") : true;
-
     return matchesSearch && matchesPref && matchesSkill && matchesRemote;
   });
 
@@ -214,52 +188,26 @@ export default function Home() {
   };
 
   const ProjectCard = ({ project }) => (
-    <div
-      style={{
-        position: "relative",
-        backgroundColor: "#fff",
-        borderRadius: "10px",
-        padding: "25px",
-        border: "1px solid #edf2f7",
-        display: "flex",
-        flexDirection: "column",
-        boxShadow: "0 4px 6px rgba(0,0,0,0.02)",
-      }}
-    >
-      {isNewProject(project.receivedAt || project.date) && (
-        <div style={{ position: "absolute", top: "10px", left: "10px", backgroundColor: "#e53e3e", color: "#fff", fontSize: "0.7rem", fontWeight: "bold", padding: "2px 8px", borderRadius: "4px", zIndex: 1 }}>NEW</div>
-      )}
-      <button onClick={() => toggleFavorite(project.id)} style={{ position: "absolute", top: "15px", right: "15px", background: "none", border: "none", cursor: "pointer", fontSize: "1.4rem", color: project.favorite ? "#ed8936" : "#cbd5e0", zIndex: 2 }}>{project.favorite ? "★" : "☆"}</button>
-      <h3 style={{ fontSize: "1.05rem", color: "#1a365d", marginBottom: "20px", minHeight: "3em", fontWeight: "700", paddingRight: "25px" }}>{project.title}</h3>
-      <div style={{ fontSize: "0.9rem", flexGrow: 1, color: "#2d3748" }}>
-        <div style={{ display: "flex", marginBottom: "8px" }}><span style={{ fontWeight: "bold", minWidth: "90px" }}>【場所】</span><span>{project.location || "確認中"}</span></div>
-        <div style={{ display: "flex", marginBottom: "8px" }}><span style={{ fontWeight: "bold", minWidth: "90px" }}>【単価】</span><span>{project.price || "面談時相談"}</span></div>
-        <div style={{ display: "flex" }}><span style={{ fontWeight: "bold", minWidth: "90px" }}>【募集人数】</span><span>{extractMemberCountValue(project)}</span></div>
+    <div style={{ backgroundColor: "#fff", borderRadius: "10px", padding: "25px", border: "1px solid #edf2f7", display: "flex", flexDirection: "column", position: "relative" }}>
+      <button onClick={() => toggleFavorite(project.id)} style={{ position: "absolute", top: "15px", right: "15px", background: "none", border: "none", cursor: "pointer", fontSize: "1.4rem", color: project.favorite ? "#ed8936" : "#cbd5e0" }}>{project.favorite ? "★" : "☆"}</button>
+      <h3 style={{ fontSize: "1rem", color: "#1a365d", marginBottom: "20px", fontWeight: "700", paddingRight: "25px" }}>{project.title}</h3>
+      <div style={{ fontSize: "0.85rem", flexGrow: 1 }}>
+        <div style={{ display: "flex", marginBottom: "8px" }}><span style={{ fontWeight: "bold", minWidth: "80px" }}>【場所】</span><span>{project.location || "不明"}</span></div>
+        <div style={{ display: "flex", marginBottom: "8px" }}><span style={{ fontWeight: "bold", minWidth: "80px" }}>【単価】</span><span>{project.price || "相談"}</span></div>
+        <div style={{ display: "flex" }}><span style={{ fontWeight: "bold", minWidth: "80px" }}>【募集人数】</span><span>確認中</span></div>
       </div>
       <div style={{ display: "flex", gap: "8px", marginTop: "20px" }}>
-        <button
-          onClick={() => {
-            setSelectedProject(project);
-            if (!historyIds.includes(project.id)) {
-              const next = [project.id, ...historyIds].slice(0, 50);
-              setHistoryIds(next);
-              localStorage.setItem("history", JSON.stringify(next));
-            }
-          }}
-          style={{ flex: 1, padding: "12px", backgroundColor: "#1a365d", color: "#fff", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "bold" }}
-        >
-          詳細を見る
-        </button>
-        <button onClick={(e) => { e.stopPropagation(); deleteProject(project.id); }} style={{ padding: "0 15px", borderRadius: "8px", border: "1px solid #fc8181", background: "#fff", color: "#e53e3e", cursor: "pointer", fontSize: "0.8rem" }}>削除</button>
+        <button onClick={() => setSelectedProject(project)} style={{ flex: 1, padding: "10px", backgroundColor: "#1a365d", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold" }}>詳細を見る</button>
+        <button onClick={() => deleteProject(project.id)} style={{ padding: "0 12px", borderRadius: "6px", border: "1px solid #fc8181", color: "#e53e3e", background: "#fff", cursor: "pointer" }}>削除</button>
       </div>
     </div>
   );
 
   return (
     <div style={{ backgroundColor: "#f7fafc", minHeight: "100vh", color: "#2d3748", fontFamily: "sans-serif" }}>
-      {/* 共通ナビゲーション */}
+      {/* ナビゲーション - 左端寄せ */}
       <nav style={{ backgroundColor: "#1a365d", position: "sticky", top: 0, zIndex: 100 }}>
-        <div style={{ maxWidth: "1200px", margin: "0 auto", display: "flex", height: "60px", padding: "0 20px" }}>
+        <div style={{ display: "flex", height: "60px", padding: "0 20px" }}>
           {[
             { id: "all", label: "案件を探す" },
             { id: "favorites", label: "お気に入り" },
@@ -276,8 +224,10 @@ export default function Home() {
         </div>
       </nav>
 
-      <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "40px 20px", display: "flex", gap: "30px" }}>
-        {/* 左サイドバー: カテゴリー選択 */}
+      {/* メインレイアウト - 左端寄せ */}
+      <div style={{ display: "flex", padding: "40px 20px", gap: "30px", boxSizing: "border-box" }}>
+        
+        {/* 左サイドバー */}
         <aside style={{ width: "220px", flexShrink: 0 }}>
           <h2 style={{ fontSize: "1rem", fontWeight: "bold", marginBottom: "15px", color: "#1a365d", borderLeft: "4px solid #1a365d", paddingLeft: "10px" }}>カテゴリー</h2>
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -296,8 +246,6 @@ export default function Home() {
                   cursor: "pointer",
                   fontSize: "0.95rem",
                   fontWeight: "bold",
-                  boxShadow: "0 2px 4px rgba(0,0,0,0.02)",
-                  transition: "all 0.2s",
                 }}
               >
                 {btn.label}
@@ -306,9 +254,8 @@ export default function Home() {
           </div>
         </aside>
 
-        {/* 右メインコンテンツ */}
-        <main style={{ flexGrow: 1 }}>
-          {/* 案件検索モード時のみ表示される検索ボックス */}
+        {/* メインコンテンツ */}
+        <main style={{ flexGrow: 1, maxWidth: "1600px" }}>
           {viewMode === "all" && (
             <div style={{ backgroundColor: "#fff", padding: "25px", borderRadius: "10px", border: "1px solid #e2e8f0", marginBottom: "30px" }}>
               <div style={{ position: "relative", marginBottom: "15px" }}>
@@ -316,67 +263,45 @@ export default function Home() {
                   type="text"
                   placeholder="キーワード・駅名で検索"
                   value={searchQuery}
-                  onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); fetchStations(e.target.value); }}
-                  style={{ width: "100%", padding: "14px", border: "2px solid #cbd5e0", borderRadius: "8px", fontSize: "1rem" }}
+                  onChange={(e) => { setSearchQuery(e.target.value); fetchStations(e.target.value); }}
+                  style={{ width: "100%", padding: "14px", border: "2px solid #cbd5e0", borderRadius: "8px", fontSize: "1rem", boxSizing: "border-box" }}
                 />
-                {isStationLoading && <div style={{ position: "absolute", right: "15px", top: "16px", fontSize: "0.8rem", color: "#a0aec0" }}>確認中...</div>}
                 {stationSuggestions.length > 0 && (
-                  <div style={{ position: "absolute", top: "100%", left: 0, right: 0, backgroundColor: "#fff", border: "1px solid #cbd5e0", zIndex: 100, borderRadius: "8px", boxShadow: "0 10px 15px rgba(0,0,0,0.1)", marginTop: "4px" }}>
+                  <div style={{ position: "absolute", top: "100%", left: 0, right: 0, backgroundColor: "#fff", border: "1px solid #cbd5e0", zIndex: 100, borderRadius: "8px" }}>
                     {stationSuggestions.map((name) => (
-                      <div key={name} onClick={() => { setSearchQuery(name); setStationSuggestions([]); setCurrentPage(1); }} style={{ padding: "12px", cursor: "pointer", borderBottom: "1px solid #f7fafc" }}>{name}駅</div>
+                      <div key={name} onClick={() => { setSearchQuery(name); setStationSuggestions([]); }} style={{ padding: "12px", cursor: "pointer", borderBottom: "1px solid #f7fafc" }}>{name}駅</div>
                     ))}
                   </div>
                 )}
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <button onClick={() => setShowFilters(!showFilters)} style={{ background: "#f8fafc", border: "1px solid #cbd5e0", borderRadius: "6px", padding: "8px 16px", cursor: "pointer", fontSize: "0.85rem", fontWeight: "600" }}>詳細絞り込み {showFilters ? "▲" : "▼"}</button>
-                <label style={{ cursor: "pointer", fontSize: "0.85rem", display: "flex", alignItems: "center" }}><input type="checkbox" checked={isRemoteOnly} onChange={(e) => setIsRemoteOnly(e.target.checked)} style={{ marginRight: "6px" }} /> リモートのみ</label>
+                <button onClick={() => setShowFilters(!showFilters)} style={{ background: "#f8fafc", border: "1px solid #cbd5e0", borderRadius: "6px", padding: "8px 16px", cursor: "pointer", fontSize: "0.85rem" }}>詳細絞り込み {showFilters ? "▲" : "▼"}</button>
+                <label style={{ fontSize: "0.85rem", cursor: "pointer" }}><input type="checkbox" checked={isRemoteOnly} onChange={(e) => setIsRemoteOnly(e.target.checked)} /> リモートのみ</label>
               </div>
               {showFilters && (
                 <div style={{ marginTop: "20px", borderTop: "1px solid #edf2f7", paddingTop: "20px" }}>
-                  <div style={{ marginBottom: "20px" }}>
-                    <div style={{ fontSize: "0.75rem", fontWeight: "bold", color: "#718096", marginBottom: "10px" }}>都道府県</div>
-                    <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", maxHeight: "120px", overflowY: "auto" }}>
-                      {prefectures.map((pref) => (
-                        <button key={pref} onClick={() => toggleSelection(pref, selectedPrefs, setSelectedPrefs)} style={{ padding: "4px 10px", borderRadius: "4px", border: "1px solid", borderColor: selectedPrefs.includes(pref) ? "#3182ce" : "#cbd5e0", backgroundColor: selectedPrefs.includes(pref) ? "#3182ce" : "#fff", color: selectedPrefs.includes(pref) ? "#fff" : "#4a5568", cursor: "pointer", fontSize: "0.75rem" }}>{pref}</button>
-                      ))}
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
-                    {skillCategories.map((cat) => (
-                      <div key={cat.label}>
-                        <div style={{ fontSize: "0.75rem", fontWeight: "bold", color: "#718096", marginBottom: "8px" }}>{cat.label}</div>
-                        <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-                          {cat.skills.map((skill) => (
-                            <button key={skill} onClick={() => toggleSelection(skill, selectedSkills, setSelectedSkills)} style={{ padding: "5px 12px", borderRadius: "15px", border: "1px solid", borderColor: selectedSkills.includes(skill) ? "#1a365d" : "#cbd5e0", backgroundColor: selectedSkills.includes(skill) ? "#1a365d" : "#fff", color: selectedSkills.includes(skill) ? "#fff" : "#4a5568", cursor: "pointer", fontSize: "0.75rem" }}>{skill}</button>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
+                  <div style={{ marginBottom: "15px", fontSize: "0.75rem", fontWeight: "bold" }}>都道府県</div>
+                  <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "20px" }}>
+                    {prefectures.map(p => <button key={p} onClick={() => toggleSelection(p, selectedPrefs, setSelectedPrefs)} style={{ padding: "4px 10px", borderRadius: "4px", border: "1px solid", backgroundColor: selectedPrefs.includes(p) ? "#3182ce" : "#fff", color: selectedPrefs.includes(p) ? "#fff" : "#4a5568", fontSize: "0.75rem", cursor: "pointer" }}>{p}</button>)}
                   </div>
                 </div>
               )}
             </div>
           )}
 
-          <h2 style={{ fontSize: "1.25rem", fontWeight: "800", color: "#1a365d", marginBottom: "20px" }}>
-            {viewMode === "favorites" ? "お気に入り案件" : viewMode === "history" ? "閲覧履歴" : "案件一覧"}
-            <span style={{ fontSize: "0.9rem", color: "#718096", marginLeft: "10px", fontWeight: "normal" }}>({filtered.length}件)</span>
+          <h2 style={{ fontSize: "1.2rem", fontWeight: "800", marginBottom: "20px" }}>
+            {viewMode === "favorites" ? "お気に入り案件" : viewMode === "history" ? "閲覧履歴" : "案件一覧"} ({filtered.length}件)
           </h2>
 
           {loading ? (
-            <div style={{ textAlign: "center", padding: "100px 0" }}>
-              <div style={{ display: "inline-block", width: "40px", height: "40px", border: "4px solid rgba(26,54,93,0.1)", borderLeftColor: "#1a365d", borderRadius: "50%", animation: "spin 1s linear infinite" }}></div>
-              <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-            </div>
+            <div style={{ textAlign: "center", padding: "100px 0" }}>読み込み中...</div>
           ) : (
             <>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "25px", marginBottom: "40px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "25px" }}>
                 {currentItems.map((p) => <ProjectCard key={p.id} project={p} />)}
               </div>
-              {filtered.length === 0 && <div style={{ textAlign: "center", padding: "60px 0", color: "#718096" }}>該当する案件が見つかりませんでした。</div>}
               {totalPages > 1 && (
-                <div style={{ display: "flex", justifyContent: "center", gap: "10px", paddingBottom: "40px" }}>
+                <div style={{ display: "flex", justifyContent: "center", gap: "10px", marginTop: "40px" }}>
                   {[...Array(totalPages)].map((_, i) => (
                     <button key={i} onClick={() => { setCurrentPage(i + 1); window.scrollTo(0, 0); }} style={{ padding: "8px 16px", borderRadius: "6px", border: "1px solid #cbd5e0", backgroundColor: currentPage === i + 1 ? "#1a365d" : "#fff", color: currentPage === i + 1 ? "#fff" : "#2d3748", cursor: "pointer" }}>{i + 1}</button>
                   ))}
@@ -390,18 +315,10 @@ export default function Home() {
       {/* 詳細モーダル */}
       {selectedProject && (
         <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.6)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000 }} onClick={() => setSelectedProject(null)}>
-          <div style={{ backgroundColor: "#fff", width: "95%", maxWidth: "900px", borderRadius: "16px", padding: "40px", maxHeight: "85vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "25px" }}>
-              <h2 style={{ color: "#1a365d", margin: 0 }}>{selectedProject.title}</h2>
-              <button onClick={() => deleteProject(selectedProject.id)} style={{ padding: "8px 16px", borderRadius: "6px", border: "1px solid #fc8181", background: "#fff", color: "#e53e3e", cursor: "pointer", fontWeight: "bold" }}>削除</button>
-            </div>
-            <div style={{ marginBottom: "30px", borderBottom: "1px solid #edf2f7", paddingBottom: "20px" }}>
-              <div style={{ display: "flex", marginBottom: "10px" }}><span style={{ fontWeight: "bold", minWidth: "100px" }}>【場所】</span><span>{selectedProject.location || "確認中"}</span></div>
-              <div style={{ display: "flex", marginBottom: "10px" }}><span style={{ fontWeight: "bold", minWidth: "100px" }}>【単価】</span><span>{selectedProject.price || "面談時相談"}</span></div>
-              <div style={{ display: "flex" }}><span style={{ fontWeight: "bold", minWidth: "100px" }}>【募集人数】</span><span>{extractMemberCountValue(selectedProject)}</span></div>
-            </div>
-            <div style={{ whiteSpace: "pre-wrap", lineHeight: "1.8", color: "#2d3748" }}>{formatContent(selectedProject.content)}</div>
-            <button onClick={() => setSelectedProject(null)} style={{ marginTop: "30px", padding: "12px 40px", backgroundColor: "#edf2f7", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "bold" }}>閉じる</button>
+          <div style={{ backgroundColor: "#fff", width: "95%", maxWidth: "800px", borderRadius: "12px", padding: "40px", maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+            <h2 style={{ color: "#1a365d", marginBottom: "20px" }}>{selectedProject.title}</h2>
+            <div style={{ whiteSpace: "pre-wrap", lineHeight: "1.7", fontSize: "0.95rem" }}>{formatContent(selectedProject.content)}</div>
+            <button onClick={() => setSelectedProject(null)} style={{ marginTop: "30px", padding: "10px 30px", backgroundColor: "#edf2f7", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold" }}>閉じる</button>
           </div>
         </div>
       )}
