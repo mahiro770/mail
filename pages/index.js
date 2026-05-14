@@ -162,11 +162,11 @@ export default function Home() {
                 <div style={{ borderTop: "1px solid #f7fafc", paddingTop: "20px", display: "flex", flexDirection: "column", gap: "12px" }}>
 <div style={{ display: "flex", fontSize: "0.95rem" }}>
 <span style={{ color: "#718096", width: "90px", fontWeight: "600" }}>【場所】</span>
-<span style={{ color: "#4a5568" }}>{project.location || "確認中"}</span>
+<span style={{ color: "#4a5568" }}>{project.location || "記載なし"}</span>
 </div>
 <div style={{ display: "flex", fontSize: "0.95rem" }}>
 <span style={{ color: "#718096", width: "90px", fontWeight: "600" }}>【単価】</span>
-<span style={{ color: "#1a365d", fontWeight: "700" }}>{project.price || "面談時相談"}</span>
+<span style={{ color: "#1a365d", fontWeight: "700" }}>{project.price || "記載なし"}</span>
 </div>
 </div>
  
