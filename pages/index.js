@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 
-// HTML内のURLやメールアドレスをリンク化する関数         
+/**
+ * HTML内のURLやメールアドレスをリンク化する関数
+ */
 const formatContent = (html) => {
   if (typeof window === "undefined") return html;
   try {
@@ -79,6 +81,9 @@ export default function Home() {
     fetchData();
   }, []);
 
+  /**
+   * APIからデータを取得し、ローカルストレージの状態と同期する
+   */
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -107,6 +112,9 @@ export default function Home() {
     }
   };
 
+  /**
+   * 案件削除処理
+   */
   const handleExecuteDelete = async () => {
     if (!deleteTargetId) return;
     try {
@@ -122,6 +130,9 @@ export default function Home() {
     }
   };
 
+  /**
+   * 駅名検索のサジェスト取得
+   */
   const fetchStations = async (name) => {
     if (!name || name.length < 1) {
       setStationSuggestions([]);
@@ -151,6 +162,9 @@ export default function Home() {
     }
   };
 
+  /**
+   * お気に入りの切り替え
+   */
   const toggleFavorite = (e, id) => {
     e.stopPropagation();
     const updated = projects.map((p) => (p.id === id ? { ...p, favorite: !p.favorite } : p));
@@ -159,6 +173,9 @@ export default function Home() {
     localStorage.setItem("favorites", JSON.stringify(favIds));
   };
 
+  /**
+   * 応募済み状態の切り替え
+   */
   const toggleApplied = (e, id) => {
     e.preventDefault();
     e.stopPropagation();
@@ -167,6 +184,9 @@ export default function Home() {
     localStorage.setItem("appliedIds", JSON.stringify(updated));
   };
 
+  /**
+   * メールの作成（メーラー起動）
+   */
   const handleSendEmail = (e, project) => {
     e.preventDefault();
     e.stopPropagation();
@@ -175,6 +195,9 @@ export default function Home() {
     window.location.href = `mailto:${targetEmail}`;
   };
 
+  /**
+   * 案件内容からカテゴリーを自動判定
+   */
   const getProjectCategories = (p) => {
     const allText = ((p.title || "") + (p.content || "") + (p.skills || "")).toLowerCase();
     let cats = [];
@@ -184,6 +207,9 @@ export default function Home() {
     return cats.length > 0 ? cats : ["dev"];
   };
 
+  /**
+   * 募集人数を抽出
+   */
   const extractRecruitment = (content) => {
     if (!content) return "記載なし";
     const regex = /([0-9０-９]+|複数|若干)名(以上)?/;
@@ -191,13 +217,24 @@ export default function Home() {
     return match ? match[0] : "記載なし";
   };
 
-  // --- 【強化版】署名を除外するロジック ---
+  /**
+   * 本文から「期間」を抽出するロジック
+   */
+  const extractDuration = (content) => {
+    if (!content) return "記載なし";
+    const regex = /(?:期間|【期間】|時期)[:：]?\s*(.*)|(\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}\s*[〜~-].*)/;
+    const match = content.match(regex);
+    return match ? match[1] || match[2] : "記載なし";
+  };
+
+  /**
+   * 署名・会社情報を除外して純粋な案件内容のみにする
+   */
   const removeSignature = (text) => {
     if (!text) return "";
     const lines = text.split(/\n/);
     let bodyLines = [];
     for (let line of lines) {
-      // 飾り線（5つ以上の連続記号）または特定のキーワードでカットを開始
       if (line.match(/[◇◆□■ー\-=＝*＊#＃]{5,}/) || line.match(/^(【会社名】|【連絡先】|■署名|URL：)/)) {
         break;
       }
@@ -206,6 +243,9 @@ export default function Home() {
     return bodyLines.join("\n").trim();
   };
 
+  /**
+   * フィルタリング処理
+   */
   const filtered = projects.filter((p) => {
     const isApplied = appliedIds.includes(p.id);
     if (viewMode !== "applied" && isApplied) return false;
@@ -218,7 +258,6 @@ export default function Home() {
       if (!favFilters.every((f) => pCats.includes(f))) return false;
     }
 
-    // 検索・フィルター判定には署名なしのテキストを使用
     const pureContent = removeSignature(p.content || "");
     const contentText = ((p.title || "") + (p.skills || "") + pureContent + (p.location || "")).toLowerCase();
     
@@ -245,6 +284,9 @@ export default function Home() {
     setCurrentPage(1);
   };
 
+  /**
+   * 案件カードコンポーネント
+   */
   const ProjectCard = ({ project }) => {
     const isRead = readIds.includes(project.id); 
     const isApplied = appliedIds.includes(project.id);
@@ -265,7 +307,23 @@ export default function Home() {
           <div style={{ display: "flex" }}><span style={{ fontWeight: "bold", minWidth: "80px" }}>【募集人数】</span><span>{extractRecruitment(project.content)}</span></div>
         </div>
         <div style={{ display: "flex", gap: "8px", marginTop: "20px", flexWrap: "wrap" }}>
-          <button onClick={() => { setSelectedProject(project); const history = JSON.parse(localStorage.getItem("history") || "[]"); if (!history.includes(project.id)) { const newH = [project.id, ...history].slice(0, 50); localStorage.setItem("history", JSON.stringify(newH)); setHistoryIds(newH); } const reads = JSON.parse(localStorage.getItem("readProjects") || "[]"); if (!reads.includes(project.id)) { const newR = [...reads, project.id]; localStorage.setItem("readProjects", JSON.stringify(newR)); setReadIds(newR); } }} style={{ flex: "1 1 calc(50% - 4px)", padding: "10px", backgroundColor: "#1a365d", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold" }}>詳細</button>
+          {/* 詳細表示ボタン：閲覧履歴と既読の状態を更新する */}
+          <button onClick={() => { 
+            setSelectedProject(project); 
+            const history = JSON.parse(localStorage.getItem("history") || "[]"); 
+            if (!history.includes(project.id)) { 
+              const newH = [project.id, ...history].slice(0, 50); 
+              localStorage.setItem("history", JSON.stringify(newH)); 
+              setHistoryIds(newH); 
+            } 
+            const reads = JSON.parse(localStorage.getItem("readProjects") || "[]"); 
+            if (!reads.includes(project.id)) { 
+              const newR = [...reads, project.id]; 
+              localStorage.setItem("readProjects", JSON.stringify(newR)); 
+              setReadIds(newR); 
+            } 
+          }} style={{ flex: "1 1 calc(50% - 4px)", padding: "10px", backgroundColor: "#1a365d", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold" }}>詳細</button>
+          
           <button onClick={(e) => handleSendEmail(e, project)} style={{ flex: "1 1 calc(50% - 4px)", padding: "10px", backgroundColor: "#3182ce", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold" }}>メール作成</button>
           <button onClick={(e) => toggleApplied(e, project.id)} style={{ flex: "1 1 100%", padding: "8px", borderRadius: "6px", border: "1px solid #cbd5e0", background: isApplied ? "#e6fffa" : "#fff", color: isApplied ? "#38a169" : "#4a5568", cursor: "pointer", fontWeight: "bold" }}>{isApplied ? "応募解除" : "応募済みにする"}</button>
           <button onClick={(e) => { e.stopPropagation(); setDeleteTargetId(project.id); }} style={{ width: "100%", padding: "6px", borderRadius: "6px", border: "1px solid #fc8181", color: "#e53e3e", background: "#fff", cursor: "pointer", fontSize: "0.75rem" }}>削除</button>
@@ -276,6 +334,7 @@ export default function Home() {
 
   return (
     <div style={{ backgroundColor: "#f7fafc", minHeight: "100vh", color: "#2d3748", fontFamily: "sans-serif" }}>
+      {/* ナビゲーションバー */}
       <nav style={{ backgroundColor: "#1a365d", position: "sticky", top: 0, zIndex: 100 }}>
         <div style={{ display: "flex", height: "60px", padding: "0 20px", alignItems: "center" }}>
           <button onClick={() => window.history.back()} style={{ background: "none", border: "none", color: "#fff", cursor: "pointer", fontSize: "0.9rem", display: "flex", alignItems: "center", marginRight: "20px" }}>
@@ -289,6 +348,7 @@ export default function Home() {
       </nav>
 
       <div style={{ display: "flex", padding: "40px 20px", gap: "30px", boxSizing: "border-box" }}>
+        {/* サイドバー（カテゴリー） */}
         <aside style={{ width: "220px", flexShrink: 0 }}>
           <h2 style={{ fontSize: "1rem", fontWeight: "bold", marginBottom: "15px", color: "#1a365d", borderLeft: "4px solid #1a365d", paddingLeft: "10px" }}>カテゴリー</h2>
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -298,9 +358,11 @@ export default function Home() {
           </div>
         </aside>
 
+        {/* メインコンテンツ */}
         <main style={{ flexGrow: 1, maxWidth: "1600px" }}>
           {viewMode === "all" && (
             <div style={{ backgroundColor: "#fff", padding: "25px", borderRadius: "10px", border: "1px solid #e2e8f0", marginBottom: "30px" }}>
+              {/* 検索入力 */}
               <div style={{ position: "relative", marginBottom: "15px" }}>
                 <input type="text" placeholder="キーワード・駅名で検索" value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); fetchStations(e.target.value); }} style={{ width: "100%", padding: "14px", border: "2px solid #cbd5e0", borderRadius: "8px", fontSize: "1rem", boxSizing: "border-box" }} />
                 {stationSuggestions.length > 0 && (
@@ -311,10 +373,13 @@ export default function Home() {
                   </div>
                 )}
               </div>
+              
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <button onClick={() => setShowFilters(!showFilters)} style={{ background: "#f8fafc", border: "1px solid #cbd5e0", borderRadius: "6px", padding: "8px 16px", cursor: "pointer", fontSize: "0.85rem", fontWeight: "bold" }}>詳細絞り込み {showFilters ? "▲" : "▼"}</button>
                 <label style={{ fontSize: "0.85rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "5px" }}><input type="checkbox" checked={isRemoteOnly} onChange={(e) => setIsRemoteOnly(e.target.checked)} /> リモートのみ</label>
               </div>
+
+              {/* 詳細フィルター表示エリア */}
               {showFilters && (
                 <div style={{ marginTop: "20px", borderTop: "1px solid #edf2f7", paddingTop: "20px" }}>
                   {skillCategories.map((cat) => (
@@ -340,6 +405,7 @@ export default function Home() {
           )}
 
           <h2 style={{ fontSize: "1.2rem", fontWeight: "800", marginBottom: "20px" }}>{viewMode === "all" ? "案件一覧" : viewMode === "applied" ? "応募済み案件" : viewMode === "favorites" ? "お気に入り案件" : "閲覧履歴"} ({filtered.length}件)</h2>
+          
           {loading ? <div style={{ textAlign: "center", padding: "100px 0" }}>読み込み中...</div> : (
             <>
               {filtered.length === 0 ? <div style={{ textAlign: "center", padding: "50px", color: "#718096" }}>条件に一致する案件が見つかりませんでした。</div> : (
@@ -347,6 +413,8 @@ export default function Home() {
                   {currentItems.map((p) => <ProjectCard key={p.id} project={p} />)}
                 </div>
               )}
+              
+              {/* ページネーション */}
               {totalPages > 1 && (
                 <div style={{ display: "flex", justifyContent: "center", gap: "10px", marginTop: "40px", marginBottom: "40px" }}>
                   {[...Array(totalPages)].map((_, i) => (
@@ -359,15 +427,35 @@ export default function Home() {
         </main>
       </div>
 
-      {/* 詳細モーダル */}
+      {/* 詳細モーダル（ポップアップ） */}
       {selectedProject && (
         <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.6)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000 }} onClick={() => setSelectedProject(null)}>
           <div style={{ backgroundColor: "#fff", width: "95%", maxWidth: "800px", borderRadius: "12px", padding: "40px", maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
-            <h2 style={{ color: "#1a365d", marginBottom: "20px" }}>{selectedProject.title}</h2>
-            {/* 表示する際にも removeSignature を適用して署名をカット */}
-            <div style={{ whiteSpace: "pre-wrap", lineHeight: "1.7", fontSize: "0.95rem" }}>
+            <h2 style={{ color: "#1a365d", marginBottom: "5px" }}>{selectedProject.title}</h2>
+            
+            {/* 期間情報の抽出表示：【期間】形式 */}
+            {extractDuration(selectedProject.content) && (
+              <div style={{ 
+                marginBottom: "20px", 
+                padding: "12px", 
+                backgroundColor: "#ebf8ff", 
+                borderLeft: "4px solid #3182ce", 
+                borderRadius: "0 8px 8px 0" 
+              }}>
+                <div style={{ display: "flex", alignItems: "flex-start" }}>
+                  <span style={{ fontWeight: "bold", minWidth: "80px", color: "#2c5282" }}>【期間】</span>
+                  <span style={{ color: "#2d3748", fontWeight: "bold" }}>
+                    {extractDuration(selectedProject.content)}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* 本文（リンク化・署名除外を適用） */}
+            <div style={{ whiteSpace: "pre-wrap", lineHeight: "1.7", fontSize: "0.95rem", borderTop: "1px solid #edf2f7", paddingTop: "20px" }}>
               {formatContent(removeSignature(selectedProject.content))}
             </div>
+            
             <button 
               onClick={() => setSelectedProject(null)} 
               style={{ 
