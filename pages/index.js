@@ -81,9 +81,6 @@ export default function Home() {
     fetchData();
   }, []);
 
-  /**
-   * APIからデータを取得
-   */
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -112,9 +109,6 @@ export default function Home() {
     }
   };
 
-  /**
-   * 削除実行
-   */
   const handleExecuteDelete = async () => {
     if (!deleteTargetId) return;
     try {
@@ -130,9 +124,6 @@ export default function Home() {
     }
   };
 
-  /**
-   * 駅名サジェスト
-   */
   const fetchStations = async (name) => {
     if (!name || name.length < 1) {
       setStationSuggestions([]);
@@ -162,9 +153,6 @@ export default function Home() {
     }
   };
 
-  /**
-   * お気に入り切り替え
-   */
   const toggleFavorite = (e, id) => {
     e.stopPropagation();
     const updated = projects.map((p) => (p.id === id ? { ...p, favorite: !p.favorite } : p));
@@ -173,9 +161,6 @@ export default function Home() {
     localStorage.setItem("favorites", JSON.stringify(favIds));
   };
 
-  /**
-   * 応募済み切り替え
-   */
   const toggleApplied = (e, id) => {
     e.preventDefault();
     e.stopPropagation();
@@ -184,9 +169,6 @@ export default function Home() {
     localStorage.setItem("appliedIds", JSON.stringify(updated));
   };
 
-  /**
-   * メーラー起動
-   */
   const handleSendEmail = (e, project) => {
     e.preventDefault();
     e.stopPropagation();
@@ -196,7 +178,17 @@ export default function Home() {
   };
 
   /**
-   * 本文から「期間」を抽出
+   * 募集人数を抽出
+   */
+  const extractRecruitment = (content) => {
+    if (!content) return "記載なし";
+    const regex = /([0-9０-９]+|複数|若干)名(以上)?/;
+    const match = content.match(regex);
+    return match ? match[0] : "記載なし";
+  };
+
+  /**
+   * 期間を抽出
    */
   const extractDuration = (content) => {
     if (!content) return null;
@@ -206,7 +198,7 @@ export default function Home() {
   };
 
   /**
-   * 署名・不要な後半部分をカット
+   * 署名カット
    */
   const removeSignature = (text) => {
     if (!text) return "";
@@ -221,9 +213,6 @@ export default function Home() {
     return bodyLines.join("\n").trim();
   };
 
-  /**
-   * カテゴリー判定
-   */
   const getProjectCategories = (p) => {
     const allText = ((p.title || "") + (p.content || "") + (p.skills || "")).toLowerCase();
     let cats = [];
@@ -233,9 +222,6 @@ export default function Home() {
     return cats.length > 0 ? cats : ["dev"];
   };
 
-  /**
-   * フィルタリングロジック
-   */
   const filtered = projects.filter((p) => {
     const isApplied = appliedIds.includes(p.id);
     if (viewMode !== "applied" && isApplied) return false;
@@ -275,11 +261,15 @@ export default function Home() {
   };
 
   /**
-   * 案件カードコンポーネント
+   * 案件カードコンポーネント（期間・募集人数の表示を追加）
    */
   const ProjectCard = ({ project }) => {
     const isRead = readIds.includes(project.id); 
     const isApplied = appliedIds.includes(project.id);
+    
+    // DBのperiodを優先し、なければ抽出
+    const displayPeriod = project.period || extractDuration(project.content) || "記載なし";
+
     return (
       <div style={{ backgroundColor: "#fff", borderRadius: "10px", padding: "25px", border: "1px solid #edf2f7", display: "flex", flexDirection: "column", position: "relative" }}>
         <div style={{ fontSize: "0.7rem", color: "#a0aec0", marginBottom: "5px" }}>ID: {project.id}</div>
@@ -294,6 +284,9 @@ export default function Home() {
         <div style={{ fontSize: "0.85rem", flexGrow: 1 }}>
           <div style={{ display: "flex", marginBottom: "8px" }}><span style={{ fontWeight: "bold", minWidth: "80px" }}>【場所】</span><span>{project.location || "記載なし"}</span></div>
           <div style={{ display: "flex", marginBottom: "8px" }}><span style={{ fontWeight: "bold", minWidth: "80px" }}>【単価】</span><span>{project.price || "記載なし"}</span></div>
+          {/* 追加項目 */}
+          <div style={{ display: "flex", marginBottom: "8px" }}><span style={{ fontWeight: "bold", minWidth: "80px" }}>【期間】</span><span>{project.period || "記載なし"}</span></div>
+          <div style={{ display: "flex" }}><span style={{ fontWeight: "bold", minWidth: "80px" }}>【募集人数】</span><span>{project.recruitment || "記載なし"}</span></div>
         </div>
         <div style={{ display: "flex", gap: "8px", marginTop: "20px", flexWrap: "wrap" }}>
           <button onClick={() => { 
@@ -325,7 +318,6 @@ export default function Home() {
       {/* ナビゲーションバー */}
       <nav style={{ backgroundColor: "#1a365d", position: "sticky", top: 0, zIndex: 100 }}>
         <div style={{ display: "flex", height: "60px", padding: "0 20px", alignItems: "center" }}>
-          {/* 戻るボタンを削除し、メニューのみを表示 */}
           {[{ id: "all", label: "案件を探す" }, { id: "applied", label: "応募済み" }, { id: "favorites", label: "お気に入り" }, { id: "history", label: "閲覧履歴" }].map((tab) => (
             <button key={tab.id} onClick={() => { setViewMode(tab.id); setCurrentPage(1); }} style={{ background: viewMode === tab.id ? "rgba(255,255,255,0.1)" : "none", border: "none", color: "#fff", cursor: "pointer", fontWeight: "600", padding: "0 25px", height: "100%" }}>{tab.label}</button>
           ))}
@@ -333,7 +325,7 @@ export default function Home() {
       </nav>
 
       <div style={{ display: "flex", padding: "40px 20px", gap: "30px", boxSizing: "border-box" }}>
-        {/* サイドバー（カテゴリー） */}
+        {/* サイドバー */}
         <aside style={{ width: "220px", flexShrink: 0 }}>
           <h2 style={{ fontSize: "1rem", fontWeight: "bold", marginBottom: "15px", color: "#1a365d", borderLeft: "4px solid #1a365d", paddingLeft: "10px" }}>カテゴリー</h2>
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -343,7 +335,6 @@ export default function Home() {
           </div>
         </aside>
 
-        {/* メインコンテンツ */}
         <main style={{ flexGrow: 1, maxWidth: "1600px" }}>
           {viewMode === "all" && (
             <div style={{ backgroundColor: "#fff", padding: "25px", borderRadius: "10px", border: "1px solid #e2e8f0", marginBottom: "30px" }}>
@@ -391,7 +382,7 @@ export default function Home() {
           
           {loading ? <div style={{ textAlign: "center", padding: "100px 0" }}>読み込み中...</div> : (
             <>
-              {filtered.length === 0 ? <div style={{ textAlign: "center", padding: "50px", color: "#718096" }}>案件がありません。</div> : (
+              {filtered.length === 0 ? <div style={{ textAlign: "center", padding: "50px", color: "#718096" }}>該当する案件がありません。</div> : (
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "25px" }}>
                   {currentItems.map((p) => <ProjectCard key={p.id} project={p} />)}
                 </div>
@@ -415,25 +406,21 @@ export default function Home() {
           <div style={{ backgroundColor: "#fff", width: "95%", maxWidth: "800px", borderRadius: "12px", padding: "40px", maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
             <h2 style={{ color: "#1a365d", marginBottom: "5px" }}>{selectedProject.title}</h2>
             
-            {/* 期間の強調表示（【期間】形式） */}
-            {extractDuration(selectedProject.content) && (
+            {/* 詳細モーダル内の期間強調 */}
+            {(selectedProject.period || extractDuration(selectedProject.content)) && (
               <div style={{ 
-                marginBottom: "20px", 
-                padding: "12px", 
-                backgroundColor: "#ebf8ff", 
-                borderLeft: "4px solid #3182ce", 
-                borderRadius: "0 8px 8px 0" 
+                marginBottom: "20px", padding: "12px", backgroundColor: "#ebf8ff", 
+                borderLeft: "4px solid #3182ce", borderRadius: "0 8px 8px 0" 
               }}>
                 <div style={{ display: "flex", alignItems: "flex-start" }}>
                   <span style={{ fontWeight: "bold", minWidth: "80px", color: "#2c5282" }}>【期間】</span>
                   <span style={{ color: "#2d3748", fontWeight: "bold" }}>
-                    {extractDuration(selectedProject.content)}
+                    {selectedProject.period || extractDuration(selectedProject.content)}
                   </span>
                 </div>
               </div>
             )}
 
-            {/* 本文（リンク化・署名カット適用） */}
             <div style={{ whiteSpace: "pre-wrap", lineHeight: "1.7", fontSize: "0.95rem", borderTop: "1px solid #edf2f7", paddingTop: "20px" }}>
               {formatContent(removeSignature(selectedProject.content))}
             </div>
@@ -443,7 +430,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* 削除確認 */}
+      {/* 削除モーダル */}
       {deleteTargetId && (
         <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.6)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1100 }} onClick={() => setDeleteTargetId(null)}>
           <div style={{ backgroundColor: "#fff", padding: "30px", borderRadius: "12px", textAlign: "center" }} onClick={e => e.stopPropagation()}>
