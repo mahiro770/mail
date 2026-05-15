@@ -60,9 +60,11 @@ export default function Home() {
   const [readIds, setReadIds] = useState([]); // ★既読IDを管理するステート
   const [appliedIds, setAppliedIds] = useState([]); // ★応募済みIDを管理するステート
   const [deleteTargetId, setDeleteTargetId] = useState(null); // 削除確認モーダル用
-// 1ページあたりの表示件数
+
+  // 1ページあたりの表示件数
   const projectsPerPage = 12;
- // 都道府県リスト
+
+  // 都道府県リスト
   const prefectures = [
     "北海道", "青森県", "岩手県", "宮城県", "秋田県", "山形県", "福島県",
     "茨城県", "栃木県", "群馬県", "埼玉県", "千葉県", "東京都", "神奈川県",
@@ -72,6 +74,7 @@ export default function Home() {
     "徳島県", "香川県", "愛媛県", "高知県", "福岡県", "佐賀県", "長崎県",
     "熊本県", "大分県", "宮崎県", "鹿児島県", "沖縄県",
   ];
+
   // スキルカテゴリとスキルのリスト
   const skillCategories = [
     { label: "Language / Backend", skills: ["Java", "PHP", "Python", "Ruby", "Go", "C#", "C++", "Rust", "Kotlin", "Swift"] },
@@ -79,6 +82,7 @@ export default function Home() {
     { label: "Infra / OS / Cloud", skills: ["AWS", "Azure", "GCP", "Docker", "Kubernetes", "Linux", "Windows", "Terraform"] },
     { label: "DB / Tool / CI/CD", skills: ["MySQL", "PostgreSQL", "Oracle", "Git", "GitHub", "CircleCI", "Jenkins", "Ansible"] },
   ];
+
   // サイドのカテゴリー（お気に入りフィルタ用）
   const sideCategories = [
     { id: "all", label: "すべて" },
@@ -86,10 +90,12 @@ export default function Home() {
     { id: "infra", label: "インフラ" },
     { id: "embedded", label: "組み込み" },
   ];
+
   // 初回データ取得
   useEffect(() => {
     fetchData();
   }, []);
+
   // データ取得関数
   const fetchData = async () => {
     setLoading(true);
@@ -101,10 +107,12 @@ export default function Home() {
         const savedHistory = JSON.parse(localStorage.getItem("history") || "[]");
         const savedRead = JSON.parse(localStorage.getItem("readProjects") || "[]"); // ★既読データの読み込み
         const savedApplied = JSON.parse(localStorage.getItem("appliedIds") || "[]"); // ★応募済みデータの読み込み
+        
         // ステートに保存
         setHistoryIds(savedHistory);
         setReadIds(savedRead);
         setAppliedIds(savedApplied);
+
         // お気に入りフラグを付与して案件データを保存
         const dataWithFavs = (payload.data || []).map((item) => ({
           ...item,
@@ -134,6 +142,7 @@ export default function Home() {
       setDeleteTargetId(null);
     }
   };
+
   // 駅名から候補を取得する関数
   const fetchStations = async (name) => {
     if (!name || name.length < 1) {
@@ -157,6 +166,7 @@ export default function Home() {
       setIsStationLoading(false);
     }
   };
+
   // お気に入りの切り替え
   const toggleFavorite = (e, id) => {
     e.stopPropagation();
@@ -165,6 +175,7 @@ export default function Home() {
     const favIds = updated.filter((p) => p.favorite).map((p) => p.id);
     localStorage.setItem("favorites", JSON.stringify(favIds));
   };
+
   // 応募済みの切り替え
   const toggleApplied = (e, id) => {
     e.preventDefault();
@@ -213,33 +224,40 @@ export default function Home() {
     // ★応募済みタブ以外では、応募済み案件を非表示にする
     if (viewMode !== "applied" && isApplied) return false;
     if (viewMode === "applied") return isApplied;
+
     // ★お気に入りタブと履歴タブの表示条件
     if (viewMode === "favorites") return p.favorite;
     if (viewMode === "history") return historyIds.includes(p.id);
+
     // ★サイドのカテゴリー絞り込み 
     if (favFilters.length > 0) {
       const pCats = getProjectCategories(p);
       if (!favFilters.every((f) => pCats.includes(f))) return false;
     }
+
     // ★キーワード、都道府県、スキル、リモート条件の絞り込み
     const contentText = ((p.title || "") + (p.skills || "") + (p.content || "") + (p.location || "")).toLowerCase();
     const matchesSearch = contentText.includes(searchQuery.toLowerCase());
     const matchesPref = selectedPrefs.length === 0 ? true : selectedPrefs.some((pref) => p.location?.includes(pref));
     const matchesSkill = selectedSkills.length === 0 ? true : selectedSkills.every((skill) => contentText.includes(skill.toLowerCase()));
     const matchesRemote = isRemoteOnly ? p.location?.includes("リモート") || p.title?.includes("リモート") : true;
+
     // すべての条件を満たす案件のみ表示
     return matchesSearch && matchesPref && matchesSkill && matchesRemote;
   });
+
   // ページネーションのための現在表示する案件を計算
   const currentItems = filtered.slice((currentPage - 1) * projectsPerPage, currentPage * projectsPerPage);
   const totalPages = Math.ceil(filtered.length / projectsPerPage);
+
   // お気に入りフィルタの切り替え
   const toggleFavFilter = (id) => {
     if (id === "all") setFavFilters([]);
     else setFavFilters((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]));
     setCurrentPage(1);
   };
- // スキルや都道府県の選択切り替え
+
+  // スキルや都道府県の選択切り替え
   const toggleSelection = (item, list, setter) => {
     if (list.includes(item)) setter(list.filter((i) => i !== item));
     else setter([...list, item]);
@@ -250,7 +268,7 @@ export default function Home() {
   const ProjectCard = ({ project }) => {
     const isRead = readIds.includes(project.id); 
     const isApplied = appliedIds.includes(project.id);
-    // 応募済みタブでは、応募済みでない案件は表示しないため、ここでのisAppliedは常にtrueになるが、念のため表示も切り替える
+
     return (
       <div style={{ backgroundColor: "#fff", borderRadius: "10px", padding: "25px", border: "1px solid #edf2f7", display: "flex", flexDirection: "column", position: "relative" }}>
         <div style={{ fontSize: "0.7rem", color: "#a0aec0", marginBottom: "5px" }}>ID: {project.id}</div>
@@ -271,10 +289,11 @@ export default function Home() {
             onClick={(e) => toggleFavorite(e, project.id)} 
             style={{ background: "none", border: "none", cursor: "pointer", fontSize: "1.4rem", color: project.favorite ? "#ed8936" : "#cbd5e0", padding: 0, lineHeight: 1 }}
           >
-            {project.favorite ? "★" : "☆"}// お気に入りアイコン
+            {project.favorite ? "★" : "☆"}
           </button>
         </div>
-          // 案件の基本情報エリア
+
+        {/* 案件の基本情報エリア */}
         <h3 style={{ fontSize: "1rem", color: "#1a365d", marginBottom: "20px", fontWeight: "700", paddingRight: "60px" }}>{project.title}</h3>
         <div style={{ fontSize: "0.85rem", flexGrow: 1 }}>
           <div style={{ display: "flex", marginBottom: "8px" }}>
@@ -290,7 +309,8 @@ export default function Home() {
             <span>{extractRecruitment(project.content)}</span>
           </div>
         </div>
-          // 詳細・メール作成・応募切り替え・削除のボタンエリア
+
+        {/* 詳細・メール作成・応募切り替え・削除のボタンエリア */}
         <div style={{ display: "flex", gap: "8px", marginTop: "20px", flexWrap: "wrap" }}>
           <button onClick={() => {
               setSelectedProject(project);
@@ -327,6 +347,7 @@ export default function Home() {
       </div>
     );
   };
+
   // メインのレンダリング
   return (
     <div style={{ backgroundColor: "#f7fafc", minHeight: "100vh", color: "#2d3748", fontFamily: "sans-serif" }}>
@@ -337,13 +358,13 @@ export default function Home() {
             { id: "applied", label: "応募済み" },
             { id: "favorites", label: "お気に入り" },
             { id: "history", label: "閲覧履歴" },
-          ].map((tab) => (     // タブ切り替えボタン
+          ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => { setViewMode(tab.id); setCurrentPage(1); }}
               style={{ background: viewMode === tab.id ? "rgba(255,255,255,0.1)" : "none", border: "none", color: "#fff", cursor: "pointer", fontWeight: "600", padding: "0 25px" }}
             >
-              {tab.label} // タブのラベル
+              {tab.label}
             </button>
           ))}
         </div>
@@ -355,7 +376,7 @@ export default function Home() {
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
             {sideCategories.map((btn) => (
               <button
-                key={btn.id}  // サイドのカテゴリー絞り込みボタン
+                key={btn.id}
                 onClick={() => toggleFavFilter(btn.id)}
                 style={{
                   padding: "12px 15px",
@@ -370,13 +391,13 @@ export default function Home() {
                   fontWeight: "bold",
                 }}
               >
-                {btn.label}  // ボタンのラベル
+                {btn.label}
               </button>
             ))}
           </div>
         </aside>
 
-            // メインコンテンツエリア
+        {/* メインコンテンツエリア */}
         <main style={{ flexGrow: 1, maxWidth: "1600px" }}>
           {viewMode === "all" && (
             <div style={{ backgroundColor: "#fff", padding: "25px", borderRadius: "10px", border: "1px solid #e2e8f0", marginBottom: "30px" }}>
@@ -404,7 +425,8 @@ export default function Home() {
                   <input type="checkbox" checked={isRemoteOnly} onChange={(e) => setIsRemoteOnly(e.target.checked)} /> リモートのみ
                 </label>
               </div>
-                // 詳細フィルタエリア（スキルと都道府県の選択）
+
+              {/* 詳細フィルタエリア（スキルと都道府県の選択） */}
               {showFilters && (
                 <div style={{ marginTop: "20px", borderTop: "1px solid #edf2f7", paddingTop: "20px" }}>
                   {skillCategories.map((cat) => (
@@ -432,9 +454,10 @@ export default function Home() {
                       </div>
                     </div>
                   ))}
-                  // 都道府県選択エリア
+
                   <div style={{ height: "1px", backgroundColor: "#edf2f7", margin: "20px 0" }} />
                
+                  {/* 都道府県選択エリア */}
                   <div style={{ marginBottom: "10px", fontSize: "0.8rem", fontWeight: "bold", color: "#4a5568" }}>都道府県</div>
                   <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
                     {prefectures.map(p => (
@@ -460,16 +483,18 @@ export default function Home() {
               )}
             </div>
           )}
-          // 案件リストのタイトルと件数表示
+
+          {/* 案件リストのタイトルと件数表示 */}
           <h2 style={{ fontSize: "1.2rem", fontWeight: "800", marginBottom: "20px" }}>
             {viewMode === "all" ? "案件一覧" : viewMode === "applied" ? "応募済み案件" : viewMode === "favorites" ? "お気に入り案件" : "閲覧履歴"} ({filtered.length}件)
           </h2>
-          // 案件リスト表示エリア
+
+          {/* 案件リスト表示エリア */}
           {loading ? (
             <div style={{ textAlign: "center", padding: "100px 0" }}>読み込み中...</div>
           ) : (
             <>
-            // 絞り込み後の案件が0件の場合の表示と、案件カードのグリッド表示
+              {/* 絞り込み後の案件が0件の場合の表示と、案件カードのグリッド表示 */}
               {filtered.length === 0 ? (
                 <div style={{ textAlign: "center", padding: "50px", color: "#718096" }}>条件に一致する案件が見つかりませんでした。</div>
               ) : (
