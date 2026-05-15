@@ -177,9 +177,6 @@ export default function Home() {
     window.location.href = `mailto:${targetEmail}`;
   };
 
-  /**
-   * 募集人数を抽出
-   */
   const extractRecruitment = (content) => {
     if (!content) return "記載なし";
     const regex = /([0-9０-９]+|複数|若干)名(以上)?/;
@@ -187,19 +184,6 @@ export default function Home() {
     return match ? match[0] : "記載なし";
   };
 
-  /**
-   * 期間を抽出
-   */
-  const extractDuration = (content) => {
-    if (!content) return null;
-    const regex = /(?:期間|【期間】|時期)[:：]?\s*(.*)|(\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}\s*[〜~-].*)/;
-    const match = content.match(regex);
-    return match ? match[1] || match[2] : null;
-  };
-
-  /**
-   * 署名カット
-   */
   const removeSignature = (text) => {
     if (!text) return "";
     const lines = text.split(/\n/);
@@ -260,15 +244,13 @@ export default function Home() {
     setCurrentPage(1);
   };
 
-  /**
-   * 案件カードコンポーネント（期間・募集人数の表示を追加）
-   */
   const ProjectCard = ({ project }) => {
     const isRead = readIds.includes(project.id); 
     const isApplied = appliedIds.includes(project.id);
     
-    // DBのperiodを優先し、なければ抽出
-    const displayPeriod = project.period || extractDuration(project.content) || "記載なし";
+    // 表示データの準備
+    const displayPeriod = project.period || "記載なし";
+    const displayRecruitment = extractRecruitment(project.content);
 
     return (
       <div style={{ backgroundColor: "#fff", borderRadius: "10px", padding: "25px", border: "1px solid #edf2f7", display: "flex", flexDirection: "column", position: "relative" }}>
@@ -280,23 +262,34 @@ export default function Home() {
             {project.favorite ? "★" : "☆"}
           </button>
         </div>
+        
+        {/* タイトル */}
         <h3 style={{ fontSize: "1rem", color: "#1a365d", marginBottom: "20px", fontWeight: "700", paddingRight: "60px" }}>{project.title}</h3>
+        
+        {/* 整列された詳細情報 */}
         <div style={{ fontSize: "0.85rem", flexGrow: 1 }}>
-          <div style={{ display: "flex", marginBottom: "8px" }}><span style={{ fontWeight: "bold", minWidth: "80px" }}>【場所】</span><span>{project.location || "記載なし"}</span></div>
-          <div style={{ display: "flex", marginBottom: "8px" }}><span style={{ fontWeight: "bold", minWidth: "80px" }}>【単価】</span><span>{project.price || "記載なし"}</span></div>
-          {/* 追加項目 */}
-          <div style={{ display: "flex", marginBottom: "8px" }}><span style={{ fontWeight: "bold", minWidth: "80px" }}>【期間】</span><span>{project.period || "記載なし"}</span></div>
-          <div style={{ display: "flex" }}><span style={{ fontWeight: "bold", minWidth: "80px" }}>【募集人数】</span><span>{project.recruitment || "記載なし"}</span></div>
+          <div style={{ display: "flex", marginBottom: "8px" }}>
+            <span style={{ fontWeight: "bold", minWidth: "80px" }}>【場所】</span>
+            <span>{project.location || "記載なし"}</span>
+          </div>
+          <div style={{ display: "flex", marginBottom: "8px" }}>
+            <span style={{ fontWeight: "bold", minWidth: "80px" }}>【単価】</span>
+            <span>{project.price || "記載なし"}</span>
+          </div>
+          <div style={{ display: "flex", marginBottom: "8px" }}>
+            <span style={{ fontWeight: "bold", minWidth: "80px" }}>【期間】</span>
+            <span>{displayPeriod}</span>
+          </div>
+          <div style={{ display: "flex" }}>
+            <span style={{ fontWeight: "bold", minWidth: "80px" }}>【募集人数】</span>
+            <span>{displayRecruitment}</span>
+          </div>
         </div>
+
+        {/* アクションボタン */}
         <div style={{ display: "flex", gap: "8px", marginTop: "20px", flexWrap: "wrap" }}>
           <button onClick={() => { 
             setSelectedProject(project); 
-            const history = JSON.parse(localStorage.getItem("history") || "[]"); 
-            if (!history.includes(project.id)) { 
-              const newH = [project.id, ...history].slice(0, 50); 
-              localStorage.setItem("history", JSON.stringify(newH)); 
-              setHistoryIds(newH); 
-            } 
             const reads = JSON.parse(localStorage.getItem("readProjects") || "[]"); 
             if (!reads.includes(project.id)) { 
               const newR = [...reads, project.id]; 
@@ -315,7 +308,6 @@ export default function Home() {
 
   return (
     <div style={{ backgroundColor: "#f7fafc", minHeight: "100vh", color: "#2d3748", fontFamily: "sans-serif" }}>
-      {/* ナビゲーションバー */}
       <nav style={{ backgroundColor: "#1a365d", position: "sticky", top: 0, zIndex: 100 }}>
         <div style={{ display: "flex", height: "60px", padding: "0 20px", alignItems: "center" }}>
           {[{ id: "all", label: "案件を探す" }, { id: "applied", label: "応募済み" }, { id: "favorites", label: "お気に入り" }, { id: "history", label: "閲覧履歴" }].map((tab) => (
@@ -325,7 +317,6 @@ export default function Home() {
       </nav>
 
       <div style={{ display: "flex", padding: "40px 20px", gap: "30px", boxSizing: "border-box" }}>
-        {/* サイドバー */}
         <aside style={{ width: "220px", flexShrink: 0 }}>
           <h2 style={{ fontSize: "1rem", fontWeight: "bold", marginBottom: "15px", color: "#1a365d", borderLeft: "4px solid #1a365d", paddingLeft: "10px" }}>カテゴリー</h2>
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -378,7 +369,7 @@ export default function Home() {
             </div>
           )}
 
-          <h2 style={{ fontSize: "1.2rem", fontWeight: "800", marginBottom: "20px" }}>{viewMode === "all" ? "案件一覧" : viewMode === "applied" ? "応募済み案件" : viewMode === "favorites" ? "お気に入り案件" : "閲覧履歴"} ({filtered.length}件)</h2>
+          <h2 style={{ fontSize: "1.2rem", fontWeight: "800", marginBottom: "20px" }}>案件一覧 ({filtered.length}件)</h2>
           
           {loading ? <div style={{ textAlign: "center", padding: "100px 0" }}>読み込み中...</div> : (
             <>
@@ -400,28 +391,32 @@ export default function Home() {
         </main>
       </div>
 
-      {/* 詳細モーダル */}
       {selectedProject && (
         <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.6)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000 }} onClick={() => setSelectedProject(null)}>
           <div style={{ backgroundColor: "#fff", width: "95%", maxWidth: "800px", borderRadius: "12px", padding: "40px", maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
-            <h2 style={{ color: "#1a365d", marginBottom: "5px" }}>{selectedProject.title}</h2>
+            <h2 style={{ color: "#1a365d", marginBottom: "20px" }}>{selectedProject.title}</h2>
             
-            {/* 詳細モーダル内の期間強調 */}
-            {(selectedProject.period || extractDuration(selectedProject.content)) && (
-              <div style={{ 
-                marginBottom: "20px", padding: "12px", backgroundColor: "#ebf8ff", 
-                borderLeft: "4px solid #3182ce", borderRadius: "0 8px 8px 0" 
-              }}>
-                <div style={{ display: "flex", alignItems: "flex-start" }}>
-                  <span style={{ fontWeight: "bold", minWidth: "80px", color: "#2c5282" }}>【期間】</span>
-                  <span style={{ color: "#2d3748", fontWeight: "bold" }}>
-                    {selectedProject.period || extractDuration(selectedProject.content)}
-                  </span>
-                </div>
+            {/* モーダル内の詳細情報も同じスタイルに統一 */}
+            <div style={{ fontSize: "0.95rem", marginBottom: "30px", borderBottom: "1px solid #edf2f7", paddingBottom: "20px" }}>
+              <div style={{ display: "flex", marginBottom: "10px" }}>
+                <span style={{ fontWeight: "bold", minWidth: "100px" }}>【場所】</span>
+                <span>{selectedProject.location || "記載なし"}</span>
               </div>
-            )}
+              <div style={{ display: "flex", marginBottom: "10px" }}>
+                <span style={{ fontWeight: "bold", minWidth: "100px" }}>【単価】</span>
+                <span>{selectedProject.price || "記載なし"}</span>
+              </div>
+              <div style={{ display: "flex", marginBottom: "10px" }}>
+                <span style={{ fontWeight: "bold", minWidth: "100px" }}>【期間】</span>
+                <span>{selectedProject.period || "記載なし"}</span>
+              </div>
+              <div style={{ display: "flex" }}>
+                <span style={{ fontWeight: "bold", minWidth: "100px" }}>【募集人数】</span>
+                <span>{extractRecruitment(selectedProject.content)}</span>
+              </div>
+            </div>
 
-            <div style={{ whiteSpace: "pre-wrap", lineHeight: "1.7", fontSize: "0.95rem", borderTop: "1px solid #edf2f7", paddingTop: "20px" }}>
+            <div style={{ whiteSpace: "pre-wrap", lineHeight: "1.7", fontSize: "0.95rem" }}>
               {formatContent(removeSignature(selectedProject.content))}
             </div>
             
@@ -430,7 +425,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* 削除モーダル */}
       {deleteTargetId && (
         <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.6)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1100 }} onClick={() => setDeleteTargetId(null)}>
           <div style={{ backgroundColor: "#fff", padding: "30px", borderRadius: "12px", textAlign: "center" }} onClick={e => e.stopPropagation()}>
