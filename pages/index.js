@@ -85,6 +85,7 @@ export default function Home() {
       const res = await fetch("/api/mails");
       const payload = await res.json();
       if (payload && !payload.error) {
+        // ローカルストレージから各種状態を復元
         const savedFavorites = JSON.parse(localStorage.getItem("favorites") || "[]");
         const savedHistory = JSON.parse(localStorage.getItem("history") || "[]");
         const savedRead = JSON.parse(localStorage.getItem("readProjects") || "[]");
@@ -107,6 +108,7 @@ export default function Home() {
     }
   };
 
+  // 削除実行
   const handleExecuteDelete = async () => {
     if (!deleteTargetId) return;
     try {
@@ -122,6 +124,7 @@ export default function Home() {
     }
   };
 
+  // 駅検索APIの呼び出し
   const fetchStations = async (name) => {
     if (!name || name.length < 1) {
       setStationSuggestions([]);
@@ -165,6 +168,7 @@ export default function Home() {
     }
   };
 
+  // お気に入り切り替え
   const toggleFavorite = (e, id) => {
     e.stopPropagation();
     const updated = projects.map((p) => (p.id === id ? { ...p, favorite: !p.favorite } : p));
@@ -173,6 +177,7 @@ export default function Home() {
     localStorage.setItem("favorites", JSON.stringify(favIds));
   };
 
+  // 応募済み切り替え
   const toggleApplied = (e, id) => {
     e.preventDefault();
     e.stopPropagation();
@@ -186,6 +191,7 @@ export default function Home() {
     localStorage.setItem("appliedIds", JSON.stringify(updated));
   };
 
+  // メール作成リンク
   const handleSendEmail = (e, project) => {
     e.preventDefault();
     e.stopPropagation();
@@ -194,6 +200,7 @@ export default function Home() {
     window.location.href = `mailto:${targetEmail}`;
   };
 
+  // 自動カテゴリー判別
   const getProjectCategories = (p) => {
     const allText = ((p.title || "") + (p.content || "") + (p.skills || "")).toLowerCase();
     let cats = [];
@@ -203,6 +210,7 @@ export default function Home() {
     return cats.length > 0 ? cats : ["dev"];
   };
 
+  // 募集人数の抽出
   const extractRecruitment = (content) => {
     if (!content) return "記載なし";
     const regex = /([0-9０-９]+|複数|若干)名(以上)?/;
@@ -210,6 +218,14 @@ export default function Home() {
     return match ? match[0] : "記載なし";
   };
 
+  // --- 【新規】署名を省くための関数 ---
+  const removeSignature = (text) => {
+    if (!text) return "";
+    // ◇ や --- などの飾り線が5つ以上並んでいる箇所を署名の開始とみなしてカット
+    return text.split(/[◇◆□■ー\-]{5,}/)[0];
+  };
+
+  // フィルタリングロジック
   const filtered = projects.filter((p) => {
     const isApplied = appliedIds.includes(p.id);
     if (viewMode !== "applied" && isApplied) return false;
@@ -222,7 +238,10 @@ export default function Home() {
       if (!favFilters.every((f) => pCats.includes(f))) return false;
     }
 
-    const contentText = ((p.title || "") + (p.skills || "") + (p.content || "") + (p.location || "")).toLowerCase();
+    // 【修正】検索対象から署名を除外したテキストを生成
+    const pureContent = removeSignature(p.content || "");
+    const contentText = ((p.title || "") + (p.skills || "") + pureContent + (p.location || "")).toLowerCase();
+    
     const matchesSearch = contentText.includes(searchQuery.toLowerCase());
     const matchesPref = selectedPrefs.length === 0 ? true : selectedPrefs.some((pref) => p.location?.includes(pref));
     const matchesSkill = selectedSkills.length === 0 ? true : selectedSkills.every((skill) => contentText.includes(skill.toLowerCase()));
@@ -246,11 +265,13 @@ export default function Home() {
     setCurrentPage(1);
   };
 
+  // 案件カードコンポーネント
   const ProjectCard = ({ project }) => {
     const isRead = readIds.includes(project.id); 
     const isApplied = appliedIds.includes(project.id);
     return (
       <div style={{ backgroundColor: "#fff", borderRadius: "10px", padding: "25px", border: "1px solid #edf2f7", display: "flex", flexDirection: "column", position: "relative" }}>
+        {/* ID表示 */}
         <div style={{ fontSize: "0.7rem", color: "#a0aec0", marginBottom: "5px" }}>ID: {project.id}</div>
         <div style={{ position: "absolute", top: "15px", right: "15px", display: "flex", alignItems: "center", gap: "8px" }}>
           {isApplied && viewMode !== "applied" && <span style={{ fontSize: "0.7rem", backgroundColor: "#48bb78", color: "#fff", padding: "2px 6px", borderRadius: "4px", fontWeight: "bold" }}>応募済み</span>}
@@ -277,15 +298,21 @@ export default function Home() {
 
   return (
     <div style={{ backgroundColor: "#f7fafc", minHeight: "100vh", color: "#2d3748", fontFamily: "sans-serif" }}>
+      {/* 戻るボタン付きのナビゲーション */}
       <nav style={{ backgroundColor: "#1a365d", position: "sticky", top: 0, zIndex: 100 }}>
-        <div style={{ display: "flex", height: "60px", padding: "0 20px" }}>
+        <div style={{ display: "flex", height: "60px", padding: "0 20px", alignItems: "center" }}>
+          <button onClick={() => window.history.back()} style={{ background: "none", border: "none", color: "#fff", cursor: "pointer", fontSize: "0.9rem", display: "flex", alignItems: "center", marginRight: "20px" }}>
+            <span style={{ marginRight: "5px" }}>←</span> 戻る
+          </button>
+          <div style={{ borderLeft: "1px solid rgba(255,255,255,0.3)", height: "24px", marginRight: "20px" }}></div>
           {[{ id: "all", label: "案件を探す" }, { id: "applied", label: "応募済み" }, { id: "favorites", label: "お気に入り" }, { id: "history", label: "閲覧履歴" }].map((tab) => (
-            <button key={tab.id} onClick={() => { setViewMode(tab.id); setCurrentPage(1); }} style={{ background: viewMode === tab.id ? "rgba(255,255,255,0.1)" : "none", border: "none", color: "#fff", cursor: "pointer", fontWeight: "600", padding: "0 25px" }}>{tab.label}</button>
+            <button key={tab.id} onClick={() => { setViewMode(tab.id); setCurrentPage(1); }} style={{ background: viewMode === tab.id ? "rgba(255,255,255,0.1)" : "none", border: "none", color: "#fff", cursor: "pointer", fontWeight: "600", padding: "0 25px", height: "100%" }}>{tab.label}</button>
           ))}
         </div>
       </nav>
 
       <div style={{ display: "flex", padding: "40px 20px", gap: "30px", boxSizing: "border-box" }}>
+        {/* サイドバー */}
         <aside style={{ width: "220px", flexShrink: 0 }}>
           <h2 style={{ fontSize: "1rem", fontWeight: "bold", marginBottom: "15px", color: "#1a365d", borderLeft: "4px solid #1a365d", paddingLeft: "10px" }}>カテゴリー</h2>
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -295,6 +322,7 @@ export default function Home() {
           </div>
         </aside>
 
+        {/* メインエリア */}
         <main style={{ flexGrow: 1, maxWidth: "1600px" }}>
           {viewMode === "all" && (
             <div style={{ backgroundColor: "#fff", padding: "25px", borderRadius: "10px", border: "1px solid #e2e8f0", marginBottom: "30px" }}>
@@ -356,16 +384,34 @@ export default function Home() {
         </main>
       </div>
 
+      {/* 詳細モーダル */}
       {selectedProject && (
         <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.6)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000 }} onClick={() => setSelectedProject(null)}>
           <div style={{ backgroundColor: "#fff", width: "95%", maxWidth: "800px", borderRadius: "12px", padding: "40px", maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
             <h2 style={{ color: "#1a365d", marginBottom: "20px" }}>{selectedProject.title}</h2>
             <div style={{ whiteSpace: "pre-wrap", lineHeight: "1.7", fontSize: "0.95rem" }}>{formatContent(selectedProject.content)}</div>
-            <button onClick={() => setSelectedProject(null)} style={{ marginTop: "30px", padding: "10px 30px", backgroundColor: "#edf2f7", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold" }}>閉じる</button>
+            {/* スタイル修正済みの閉じるボタン */}
+            <button 
+              onClick={() => setSelectedProject(null)} 
+              style={{ 
+                marginTop: "30px", 
+                padding: "8px 24px", 
+                backgroundColor: "#edf2f7", 
+                color: "#2d3748", 
+                border: "none", 
+                borderRadius: "6px", 
+                cursor: "pointer", 
+                fontWeight: "800", 
+                fontSize: "0.9rem" 
+              }}
+            >
+              閉じる
+            </button>
           </div>
         </div>
       )}
 
+      {/* 削除確認モーダル */}
       {deleteTargetId && (
         <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.6)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1100 }} onClick={() => setDeleteTargetId(null)}>
           <div style={{ backgroundColor: "#fff", padding: "30px", borderRadius: "12px", textAlign: "center" }} onClick={e => e.stopPropagation()}>
