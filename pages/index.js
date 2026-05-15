@@ -85,7 +85,6 @@ export default function Home() {
       const res = await fetch("/api/mails");
       const payload = await res.json();
       if (payload && !payload.error) {
-        // ローカルストレージから各種状態を復元
         const savedFavorites = JSON.parse(localStorage.getItem("favorites") || "[]");
         const savedHistory = JSON.parse(localStorage.getItem("history") || "[]");
         const savedRead = JSON.parse(localStorage.getItem("readProjects") || "[]");
@@ -108,7 +107,6 @@ export default function Home() {
     }
   };
 
-  // 削除実行
   const handleExecuteDelete = async () => {
     if (!deleteTargetId) return;
     try {
@@ -124,33 +122,19 @@ export default function Home() {
     }
   };
 
-  // 駅検索APIの呼び出し
   const fetchStations = async (name) => {
     if (!name || name.length < 1) {
       setStationSuggestions([]);
       return;
     }
-
     setIsStationLoading(true);
     try {
-      let targetPrefs = [];
-      if (selectedPrefs.length > 0) {
-        targetPrefs = selectedPrefs;
-      } else {
-        // 案件の場所から都道府県を自動判別
-        const detectedPrefs = prefectures.filter((pref) =>
-          projects.some((p) => p.location?.includes(pref))
-        );
-        targetPrefs = detectedPrefs.length > 0 ? detectedPrefs : ["大阪府"];
-      }
-
-      // APIリクエスト（上位5県までに制限して負荷軽減）
+      let targetPrefs = selectedPrefs.length > 0 ? selectedPrefs : ["大阪府"];
       const requests = targetPrefs.slice(0, 5).map(pref =>
         fetch(`https://express.heartrails.com/api/json?method=getStations&prefecture=${encodeURIComponent(pref)}`)
           .then(res => res.json())
           .catch(() => ({ response: { station: [] } }))
       );
-
       const results = await Promise.all(requests);
       let allStations = [];
       results.forEach(json => {
@@ -158,7 +142,6 @@ export default function Home() {
           allStations = [...allStations, ...json.response.station.map(s => s.name)];
         }
       });
-
       const suggestions = allStations.filter((stationName) => stationName.includes(name));
       setStationSuggestions([...new Set(suggestions)].slice(0, 10));
     } catch (err) {
@@ -168,7 +151,6 @@ export default function Home() {
     }
   };
 
-  // お気に入り切り替え
   const toggleFavorite = (e, id) => {
     e.stopPropagation();
     const updated = projects.map((p) => (p.id === id ? { ...p, favorite: !p.favorite } : p));
@@ -177,21 +159,14 @@ export default function Home() {
     localStorage.setItem("favorites", JSON.stringify(favIds));
   };
 
-  // 応募済み切り替え
   const toggleApplied = (e, id) => {
     e.preventDefault();
     e.stopPropagation();
-    let updated;
-    if (appliedIds.includes(id)) {
-      updated = appliedIds.filter(itemId => itemId !== id);
-    } else {
-      updated = [...appliedIds, id];
-    }
+    let updated = appliedIds.includes(id) ? appliedIds.filter(itemId => itemId !== id) : [...appliedIds, id];
     setAppliedIds(updated);
     localStorage.setItem("appliedIds", JSON.stringify(updated));
   };
 
-  // メール作成リンク
   const handleSendEmail = (e, project) => {
     e.preventDefault();
     e.stopPropagation();
@@ -200,7 +175,6 @@ export default function Home() {
     window.location.href = `mailto:${targetEmail}`;
   };
 
-  // 自動カテゴリー判別
   const getProjectCategories = (p) => {
     const allText = ((p.title || "") + (p.content || "") + (p.skills || "")).toLowerCase();
     let cats = [];
@@ -210,7 +184,6 @@ export default function Home() {
     return cats.length > 0 ? cats : ["dev"];
   };
 
-  // 募集人数の抽出
   const extractRecruitment = (content) => {
     if (!content) return "記載なし";
     const regex = /([0-9０-９]+|複数|若干)名(以上)?/;
@@ -218,14 +191,21 @@ export default function Home() {
     return match ? match[0] : "記載なし";
   };
 
-  // --- 【新規】署名を省くための関数 ---
+  // --- 【強化版】署名を除外するロジック ---
   const removeSignature = (text) => {
     if (!text) return "";
-    // ◇ や --- などの飾り線が5つ以上並んでいる箇所を署名の開始とみなしてカット
-    return text.split(/[◇◆□■ー\-]{5,}/)[0];
+    const lines = text.split(/\n/);
+    let bodyLines = [];
+    for (let line of lines) {
+      // 飾り線（5つ以上の連続記号）または特定のキーワードでカットを開始
+      if (line.match(/[◇◆□■ー\-=＝*＊#＃]{5,}/) || line.match(/^(【会社名】|【連絡先】|■署名|URL：)/)) {
+        break;
+      }
+      bodyLines.push(line);
+    }
+    return bodyLines.join("\n").trim();
   };
 
-  // フィルタリングロジック
   const filtered = projects.filter((p) => {
     const isApplied = appliedIds.includes(p.id);
     if (viewMode !== "applied" && isApplied) return false;
@@ -238,14 +218,14 @@ export default function Home() {
       if (!favFilters.every((f) => pCats.includes(f))) return false;
     }
 
-    // 【修正】検索対象から署名を除外したテキストを生成
+    // 検索・フィルター判定には署名なしのテキストを使用
     const pureContent = removeSignature(p.content || "");
     const contentText = ((p.title || "") + (p.skills || "") + pureContent + (p.location || "")).toLowerCase();
     
     const matchesSearch = contentText.includes(searchQuery.toLowerCase());
     const matchesPref = selectedPrefs.length === 0 ? true : selectedPrefs.some((pref) => p.location?.includes(pref));
     const matchesSkill = selectedSkills.length === 0 ? true : selectedSkills.every((skill) => contentText.includes(skill.toLowerCase()));
-    const matchesRemote = isRemoteOnly ? p.location?.includes("リモート") || p.title?.includes("リモート") : true;
+    const matchesRemote = isRemoteOnly ? (p.location?.includes("リモート") || p.title?.includes("リモート") || pureContent.includes("リモート")) : true;
 
     return matchesSearch && matchesPref && matchesSkill && matchesRemote;
   });
@@ -265,13 +245,11 @@ export default function Home() {
     setCurrentPage(1);
   };
 
-  // 案件カードコンポーネント
   const ProjectCard = ({ project }) => {
     const isRead = readIds.includes(project.id); 
     const isApplied = appliedIds.includes(project.id);
     return (
       <div style={{ backgroundColor: "#fff", borderRadius: "10px", padding: "25px", border: "1px solid #edf2f7", display: "flex", flexDirection: "column", position: "relative" }}>
-        {/* ID表示 */}
         <div style={{ fontSize: "0.7rem", color: "#a0aec0", marginBottom: "5px" }}>ID: {project.id}</div>
         <div style={{ position: "absolute", top: "15px", right: "15px", display: "flex", alignItems: "center", gap: "8px" }}>
           {isApplied && viewMode !== "applied" && <span style={{ fontSize: "0.7rem", backgroundColor: "#48bb78", color: "#fff", padding: "2px 6px", borderRadius: "4px", fontWeight: "bold" }}>応募済み</span>}
@@ -298,7 +276,6 @@ export default function Home() {
 
   return (
     <div style={{ backgroundColor: "#f7fafc", minHeight: "100vh", color: "#2d3748", fontFamily: "sans-serif" }}>
-      {/* 戻るボタン付きのナビゲーション */}
       <nav style={{ backgroundColor: "#1a365d", position: "sticky", top: 0, zIndex: 100 }}>
         <div style={{ display: "flex", height: "60px", padding: "0 20px", alignItems: "center" }}>
           <button onClick={() => window.history.back()} style={{ background: "none", border: "none", color: "#fff", cursor: "pointer", fontSize: "0.9rem", display: "flex", alignItems: "center", marginRight: "20px" }}>
@@ -312,7 +289,6 @@ export default function Home() {
       </nav>
 
       <div style={{ display: "flex", padding: "40px 20px", gap: "30px", boxSizing: "border-box" }}>
-        {/* サイドバー */}
         <aside style={{ width: "220px", flexShrink: 0 }}>
           <h2 style={{ fontSize: "1rem", fontWeight: "bold", marginBottom: "15px", color: "#1a365d", borderLeft: "4px solid #1a365d", paddingLeft: "10px" }}>カテゴリー</h2>
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -322,7 +298,6 @@ export default function Home() {
           </div>
         </aside>
 
-        {/* メインエリア */}
         <main style={{ flexGrow: 1, maxWidth: "1600px" }}>
           {viewMode === "all" && (
             <div style={{ backgroundColor: "#fff", padding: "25px", borderRadius: "10px", border: "1px solid #e2e8f0", marginBottom: "30px" }}>
@@ -389,8 +364,10 @@ export default function Home() {
         <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.6)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000 }} onClick={() => setSelectedProject(null)}>
           <div style={{ backgroundColor: "#fff", width: "95%", maxWidth: "800px", borderRadius: "12px", padding: "40px", maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
             <h2 style={{ color: "#1a365d", marginBottom: "20px" }}>{selectedProject.title}</h2>
-            <div style={{ whiteSpace: "pre-wrap", lineHeight: "1.7", fontSize: "0.95rem" }}>{formatContent(selectedProject.content)}</div>
-            {/* スタイル修正済みの閉じるボタン */}
+            {/* 表示する際にも removeSignature を適用して署名をカット */}
+            <div style={{ whiteSpace: "pre-wrap", lineHeight: "1.7", fontSize: "0.95rem" }}>
+              {formatContent(removeSignature(selectedProject.content))}
+            </div>
             <button 
               onClick={() => setSelectedProject(null)} 
               style={{ 
