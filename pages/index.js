@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 
 /**
- * HTML内のURLやメールアドレスをリンク化する関数
+ * HTML内のURLやメールアドレスを検出し、自動的にリンクタグ(<a>)へ変換する関数
+ * @param {string} html - 対象となるHTML/テキスト文字列
+ * @returns {Array|string} リンク化されたReact要素の配列、または元の文字列
  */
 const formatContent = (html) => {
   if (typeof window === "undefined") return html;
@@ -14,13 +16,23 @@ const formatContent = (html) => {
     return parts.map((part, i) => {
       if (part?.match(/https?:\/\//)) {
         return (
-          <a key={i} href={part} target="_blank" rel="noopener noreferrer" style={{ color: "#3182ce", textDecoration: "underline" }}>
+          <a
+            key={i}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: "#3182ce", textDecoration: "underline" }}
+          >
             {part}
           </a>
         );
       } else if (part?.match(/[\w.-]+@[\w.-]+\.[a-zA-Z]{2,4}/)) {
         return (
-          <a key={i} href={`mailto:${part}`} style={{ color: "#3182ce", textDecoration: "underline" }}>
+          <a
+            key={i}
+            href={`mailto:${part}`}
+            style={{ color: "#3182ce", textDecoration: "underline" }}
+          >
             {part}
           </a>
         );
@@ -33,6 +45,7 @@ const formatContent = (html) => {
 };
 
 export default function Home() {
+  // --- 状態管理 (State) ---
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedProject, setSelectedProject] = useState(null);
@@ -47,10 +60,11 @@ export default function Home() {
   const [viewMode, setViewMode] = useState("all");
   const [favFilters, setFavFilters] = useState([]);
   const [historyIds, setHistoryIds] = useState([]);
-  const [readIds, setReadIds] = useState([]);
-  const [appliedIds, setAppliedIds] = useState([]);
+  const [readIds, setReadIds] = useState([]); 
+  const [appliedIds, setAppliedIds] = useState([]); 
   const [deleteTargetId, setDeleteTargetId] = useState(null);
 
+  // --- 定数定義 ---
   const projectsPerPage = 12;
 
   const prefectures = [
@@ -77,10 +91,16 @@ export default function Home() {
     { id: "embedded", label: "組み込み" },
   ];
 
+  // --- 副作用処理 (Effects) ---
   useEffect(() => {
     fetchData();
   }, []);
 
+  // --- 業務ロジック関数 ---
+  
+  /**
+   * APIから案件データを取得し、ローカルストレージの保存情報と同期する関数
+   */
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -89,9 +109,9 @@ export default function Home() {
       if (payload && !payload.error) {
         const savedFavorites = JSON.parse(localStorage.getItem("favorites") || "[]");
         const savedHistory = JSON.parse(localStorage.getItem("history") || "[]");
-        const savedRead = JSON.parse(localStorage.getItem("readProjects") || "[]");
-        const savedApplied = JSON.parse(localStorage.getItem("appliedIds") || "[]");
-        
+        const savedRead = JSON.parse(localStorage.getItem("readProjects") || "[]"); 
+        const savedApplied = JSON.parse(localStorage.getItem("appliedIds") || "[]"); 
+
         setHistoryIds(savedHistory);
         setReadIds(savedRead);
         setAppliedIds(savedApplied);
@@ -109,6 +129,9 @@ export default function Home() {
     }
   };
 
+  /**
+   * 指定されたIDの案件を削除する関数
+   */
   const handleExecuteDelete = async () => {
     if (!deleteTargetId) return;
     try {
@@ -124,6 +147,10 @@ export default function Home() {
     }
   };
 
+  /**
+   * 外部APIを用いてキーワードに対応する駅名の候補を取得する関数
+   * @param {string} name - 入力された駅名キーワード
+   */
   const fetchStations = async (name) => {
     if (!name || name.length < 1) {
       setStationSuggestions([]);
@@ -148,11 +175,14 @@ export default function Home() {
       setStationSuggestions([...new Set(suggestions)].slice(0, 10));
     } catch (err) {
       setStationSuggestions([]);
-    } finally {
+    } navigator: {
       setIsStationLoading(false);
     }
   };
 
+  /**
+   * お気に入り状態のON/OFFを切り替えてローカルストレージへ保存する関数
+   */
   const toggleFavorite = (e, id) => {
     e.stopPropagation();
     const updated = projects.map((p) => (p.id === id ? { ...p, favorite: !p.favorite } : p));
@@ -161,6 +191,9 @@ export default function Home() {
     localStorage.setItem("favorites", JSON.stringify(favIds));
   };
 
+  /**
+   * 応募済み状態のON/OFFを切り替えてローカルストレージへ保存する関数
+   */
   const toggleApplied = (e, id) => {
     e.preventDefault();
     e.stopPropagation();
@@ -169,6 +202,9 @@ export default function Home() {
     localStorage.setItem("appliedIds", JSON.stringify(updated));
   };
 
+  /**
+   * 案件本文からメールアドレスを抽出し、メーラーを起動する関数
+   */
   const handleSendEmail = (e, project) => {
     e.preventDefault();
     e.stopPropagation();
@@ -177,6 +213,9 @@ export default function Home() {
     window.location.href = `mailto:${targetEmail}`;
   };
 
+  /**
+   * 本文内から特定のパターンに一致する募集人数を抽出する関数
+   */
   const extractRecruitment = (content) => {
     if (!content) return "記載なし";
     const regex = /([0-9０-９]+|複数|若干)名(以上)?/;
@@ -184,6 +223,9 @@ export default function Home() {
     return match ? match[0] : "記載なし";
   };
 
+  /**
+   * 定型文的な署名やフッターエリアを本文から除外する関数
+   */
   const removeSignature = (text) => {
     if (!text) return "";
     const lines = text.split(/\n/);
@@ -197,6 +239,9 @@ export default function Home() {
     return bodyLines.join("\n").trim();
   };
 
+  /**
+   * 案件テキストを解析し、自動的に分類カテゴリを判定する関数
+   */
   const getProjectCategories = (p) => {
     const allText = ((p.title || "") + (p.content || "") + (p.skills || "")).toLowerCase();
     let cats = [];
@@ -206,6 +251,7 @@ export default function Home() {
     return cats.length > 0 ? cats : ["dev"];
   };
 
+  // --- フィルタリング・要素抽出処理 ---
   const filtered = projects.filter((p) => {
     const isApplied = appliedIds.includes(p.id);
     if (viewMode !== "applied" && isApplied) return false;
@@ -232,6 +278,7 @@ export default function Home() {
   const currentItems = filtered.slice((currentPage - 1) * projectsPerPage, currentPage * projectsPerPage);
   const totalPages = Math.ceil(filtered.length / projectsPerPage);
 
+  // --- 選択・切り替えイベントハンドラー ---
   const toggleFavFilter = (id) => {
     if (id === "all") setFavFilters([]);
     else setFavFilters((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]));
@@ -244,11 +291,11 @@ export default function Home() {
     setCurrentPage(1);
   };
 
+  // --- サブコンポーネント (案件カード) ---
   const ProjectCard = ({ project }) => {
     const isRead = readIds.includes(project.id); 
     const isApplied = appliedIds.includes(project.id);
     
-    // 表示データの準備
     const displayPeriod = project.period || "記載なし";
     const displayRecruitment = extractRecruitment(project.content);
 
@@ -263,10 +310,10 @@ export default function Home() {
           </button>
         </div>
         
-        {/* タイトル */}
+        {/* 案件タイトルエリア */}
         <h3 style={{ fontSize: "1rem", color: "#1a365d", marginBottom: "20px", fontWeight: "700", paddingRight: "60px" }}>{project.title}</h3>
         
-        {/* 整列された詳細情報 */}
+        {/* 案件詳細情報エリア */}
         <div style={{ fontSize: "0.85rem", flexGrow: 1 }}>
           <div style={{ display: "flex", marginBottom: "8px" }}>
             <span style={{ fontWeight: "bold", minWidth: "80px" }}>【場所】</span>
@@ -286,10 +333,16 @@ export default function Home() {
           </div>
         </div>
 
-        {/* アクションボタン */}
+        {/* 操作ボタンエリア */}
         <div style={{ display: "flex", gap: "8px", marginTop: "20px", flexWrap: "wrap" }}>
           <button onClick={() => { 
             setSelectedProject(project); 
+            const history = JSON.parse(localStorage.getItem("history") || "[]");
+            if (!history.includes(project.id)) {
+              const newHistory = [project.id, ...history].slice(0, 50);
+              localStorage.setItem("history", JSON.stringify(newHistory));
+              setHistoryIds(newHistory);
+            }
             const reads = JSON.parse(localStorage.getItem("readProjects") || "[]"); 
             if (!reads.includes(project.id)) { 
               const newR = [...reads, project.id]; 
@@ -306,17 +359,30 @@ export default function Home() {
     );
   };
 
+  // --- メインレンダリング (JSX) ---
   return (
     <div style={{ backgroundColor: "#f7fafc", minHeight: "100vh", color: "#2d3748", fontFamily: "sans-serif" }}>
+      {/* 共通グローバルナビゲーション */}
       <nav style={{ backgroundColor: "#1a365d", position: "sticky", top: 0, zIndex: 100 }}>
         <div style={{ display: "flex", height: "60px", padding: "0 20px", alignItems: "center" }}>
-          {[{ id: "all", label: "案件を探す" }, { id: "applied", label: "応募済み" }, { id: "favorites", label: "お気に入り" }, { id: "history", label: "閲覧履歴" }].map((tab) => (
-            <button key={tab.id} onClick={() => { setViewMode(tab.id); setCurrentPage(1); }} style={{ background: viewMode === tab.id ? "rgba(255,255,255,0.1)" : "none", border: "none", color: "#fff", cursor: "pointer", fontWeight: "600", padding: "0 25px", height: "100%" }}>{tab.label}</button>
-          ))}
+          <div style={{ marginRight: "30px", height: "35px", display: "flex", alignItems: "center" }}>
+            <img 
+              src="/Logo_Mark2.png" 
+              alt="GE CREATIVE" 
+              style={{ height: "100%", width: "auto", objectFit: "contain" }} 
+            />
+          </div>
+          <div style={{ display: "flex", height: "100%" }}>
+            {[{ id: "all", label: "案件を探す" }, { id: "applied", label: "応募済み" }, { id: "favorites", label: "お気に入り" }, { id: "history", label: "閲覧履歴" }].map((tab) => (
+              <button key={tab.id} onClick={() => { setViewMode(tab.id); setCurrentPage(1); }} style={{ background: viewMode === tab.id ? "rgba(255,255,255,0.1)" : "none", border: "none", color: "#fff", cursor: "pointer", fontWeight: "600", padding: "0 25px", height: "100%" }}>{tab.label}</button>
+            ))}
+          </div>
         </div>
       </nav>
 
+      {/* メインレイアウトコンテナ */}
       <div style={{ display: "flex", padding: "40px 20px", gap: "30px", boxSizing: "border-box" }}>
+        {/* サイドバー（カテゴリ絞り込み） */}
         <aside style={{ width: "220px", flexShrink: 0 }}>
           <h2 style={{ fontSize: "1rem", fontWeight: "bold", marginBottom: "15px", color: "#1a365d", borderLeft: "4px solid #1a365d", paddingLeft: "10px" }}>カテゴリー</h2>
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -326,7 +392,9 @@ export default function Home() {
           </div>
         </aside>
 
+        {/* メインコンテンツエリア */}
         <main style={{ flexGrow: 1, maxWidth: "1600px" }}>
+          {/* 検索パネル（「案件を探す」モード時のみ表示） */}
           {viewMode === "all" && (
             <div style={{ backgroundColor: "#fff", padding: "25px", borderRadius: "10px", border: "1px solid #e2e8f0", marginBottom: "30px" }}>
               <div style={{ position: "relative", marginBottom: "15px" }}>
@@ -340,11 +408,13 @@ export default function Home() {
                 )}
               </div>
               
+              {/* 各種トグル・フィルターボタン */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <button onClick={() => setShowFilters(!showFilters)} style={{ background: "#f8fafc", border: "1px solid #cbd5e0", borderRadius: "6px", padding: "8px 16px", cursor: "pointer", fontSize: "0.85rem", fontWeight: "bold" }}>詳細絞り込み {showFilters ? "▲" : "▼"}</button>
                 <label style={{ fontSize: "0.85rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "5px" }}><input type="checkbox" checked={isRemoteOnly} onChange={(e) => setIsRemoteOnly(e.target.checked)} /> リモートのみ</label>
               </div>
 
+              {/* アコーディオン展開式詳細フィルター */}
               {showFilters && (
                 <div style={{ marginTop: "20px", borderTop: "1px solid #edf2f7", paddingTop: "20px" }}>
                   {skillCategories.map((cat) => (
@@ -369,8 +439,13 @@ export default function Home() {
             </div>
           )}
 
-          <h2 style={{ fontSize: "1.2rem", fontWeight: "800", marginBottom: "20px" }}>案件一覧 ({filtered.length}件)</h2>
+          {/* セクションタイトルエリア */}
+          <h2 style={{ fontSize: "1.2rem", fontWeight: "800", marginBottom: "20px" }}>
+            <span style={{ color: "#1a365d", marginRight: "8px" }}>|</span>
+            {viewMode === "all" ? "案件一覧" : viewMode === "applied" ? "応募済み案件" : viewMode === "favorites" ? "お気に入り案件" : "閲覧履歴"} ({filtered.length}件)
+          </h2>
           
+          {/* リスト表示メイン制御 */}
           {loading ? <div style={{ textAlign: "center", padding: "100px 0" }}>読み込み中...</div> : (
             <>
               {filtered.length === 0 ? <div style={{ textAlign: "center", padding: "50px", color: "#718096" }}>該当する案件がありません。</div> : (
@@ -379,6 +454,7 @@ export default function Home() {
                 </div>
               )}
               
+              {/* ページネーション */}
               {totalPages > 1 && (
                 <div style={{ display: "flex", justifyContent: "center", gap: "10px", marginTop: "40px", marginBottom: "40px" }}>
                   {[...Array(totalPages)].map((_, i) => (
@@ -391,12 +467,12 @@ export default function Home() {
         </main>
       </div>
 
+      {/* 案件詳細モーダルポップアップ */}
       {selectedProject && (
         <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.6)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000 }} onClick={() => setSelectedProject(null)}>
           <div style={{ backgroundColor: "#fff", width: "95%", maxWidth: "800px", borderRadius: "12px", padding: "40px", maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
-            <h2 style={{ color: "#1a365d", marginBottom: "20px" }}>{selectedProject.title}</h2>
+            <h2 style={{ color: "#1a365d", marginBottom: "20px", borderBottom: "2px solid #e6fffa", paddingBottom: "10px" }}>{selectedProject.title}</h2>
             
-            {/* モーダル内の詳細情報も同じスタイルに統一 */}
             <div style={{ fontSize: "0.95rem", marginBottom: "30px", borderBottom: "1px solid #edf2f7", paddingBottom: "20px" }}>
               <div style={{ display: "flex", marginBottom: "10px" }}>
                 <span style={{ fontWeight: "bold", minWidth: "100px" }}>【場所】</span>
@@ -425,6 +501,7 @@ export default function Home() {
         </div>
       )}
 
+      {/* 削除確認ダイアログ */}
       {deleteTargetId && (
         <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.6)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1100 }} onClick={() => setDeleteTargetId(null)}>
           <div style={{ backgroundColor: "#fff", padding: "30px", borderRadius: "12px", textAlign: "center" }} onClick={e => e.stopPropagation()}>
