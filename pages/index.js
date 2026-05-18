@@ -362,8 +362,8 @@ export default function Home() {
   // --- メインレンダリング (JSX) ---
   return (
     <div style={{ backgroundColor: "#f7fafc", minHeight: "100vh", color: "#2d3748", fontFamily: "sans-serif" }}>
-      {/* 共通グローバルナビゲーション */}
-      <nav style={{ backgroundColor: "#00bfa5", position: "sticky", top: 0, zIndex: 100 }}>
+      {/* 共通グローバルナビゲーション - 背景色を白に変更し、下部に薄い境界線を追加 */}
+      <nav style={{ backgroundColor: "#fff", position: "sticky", top: 0, zIndex: 100, borderBottom: "1px solid #e2e8f0" }}>
         <div style={{ display: "flex", height: "60px", padding: "0 20px", alignItems: "center" }}>
           <div style={{ marginRight: "30px", height: "35px", display: "flex", alignItems: "center" }}>
             <img 
@@ -373,9 +373,32 @@ export default function Home() {
             />
           </div>
           <div style={{ display: "flex", height: "100%" }}>
-            {[{ id: "all", label: "案件を探す" }, { id: "applied", label: "応募済み" }, { id: "favorites", label: "お気に入り" }, { id: "history", label: "閲覧履歴" }].map((tab) => (
-              <button key={tab.id} onClick={() => { setViewMode(tab.id); setCurrentPage(1); }} style={{ background: viewMode === tab.id ? "rgba(255,255,255,0.1)" : "none", border: "none", color: "#fff", cursor: "pointer", fontWeight: "600", padding: "0 25px", height: "100%" }}>{tab.label}</button>
-            ))}
+            {[{ id: "all", label: "案件を探す" }, { id: "applied", label: "応募済み" }, { id: "favorites", label: "お気に入り" }, { id: "history", label: "閲覧履歴" }].map((tab) => {
+              const isActive = viewMode === tab.id;
+              return (
+                <button 
+                  key={tab.id} 
+                  onClick={() => { setViewMode(tab.id); setCurrentPage(1); }} 
+                  style={{ 
+                    background: "none", 
+                    border: "none", 
+                    // 選択中はカテゴリー色（#00bfa5）、非選択時はグレー系の文字色
+                    color: isActive ? "#00bfa5" : "#4a5568", 
+                    cursor: "pointer", 
+                    fontWeight: "600", 
+                    padding: "0 25px", 
+                    height: "100%",
+                    position: "relative",
+                    // 選択中に下線を表示するスタイル
+                    borderBottom: isActive ? "3px solid #00bfa5" : "3px solid transparent",
+                    boxSizing: "border-box",
+                    transition: "all 0.2s ease"
+                  }}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
           </div>
         </div>
       </nav>
