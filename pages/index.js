@@ -1,51 +1,132 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
  
-/**
-* HTML内のURLやメールアドレスを検出し、自動的にリンクタグ(<a>)へ変換する関数
-* @param {string} html - 対象となるHTML/テキスト文字列
-* @returns {Array|string} リンク化されたReact要素の配列、または元の文字列
-*/
-const formatContent = (html) => {
+const LINK_STYLE = { color: "#3182ce", textDecoration: "underline" };
+const PAGE_SIZE = 12;
+ 
+const prefectures = [
+  "北海道", "青森県", "岩手県", "宮城県", "秋田県", "山形県", "福島県",
+  "茨城県", "栃木県", "群馬県", "埼玉県", "千葉県", "東京都", "神奈川県",
+  "新潟県", "富山県", "石川県", "福井県", "山梨県", "長野県", "岐阜県",
+  "静岡県", "愛知県", "三重県", "滋賀県", "京都府", "大阪府", "兵庫県",
+  "奈良県", "和歌山県", "鳥取県", "島根県", "岡山県", "広島県", "山口県",
+  "徳島県", "香川県", "愛媛県", "高知県", "福岡県", "佐賀県", "長崎県",
+  "熊本県", "大分県", "宮崎県", "鹿児島県", "沖縄県",
+];
+ 
+const skillCategories = [
+  { label: "Language / Backend", skills: ["Java", "PHP", "Python", "Ruby", "Go", "C#", "C++", "Rust", "Kotlin", "Swift"] },
+  { label: "Frontend", skills: ["React", "Next.js", "Vue.js", "Nuxt.js", "TypeScript", "JavaScript"] },
+  { label: "Infra / OS / Cloud", skills: ["AWS", "Azure", "GCP", "Docker", "Kubernetes", "Linux", "Windows", "Terraform"] },
+  { label: "DB / Tool / CI/CD", skills: ["MySQL", "PostgreSQL", "Oracle", "Git", "GitHub", "CircleCI", "Jenkins", "Ansible"] },
+];
+ 
+const sideCategories = [
+  { id: "all", label: "すべて" },
+  { id: "dev", label: "開発" },
+  { id: "infra", label: "インフラ" },
+  { id: "embedded", label: "組み込み" },
+];
+ 
+const tabs = [
+  { id: "all", label: "案件を探す" },
+  { id: "applied", label: "応募済み" },
+  { id: "favorites", label: "お気に入り" },
+  { id: "history", label: "閲覧履歴" },
+];
+ 
+const storage = {
+  get(key) {
+    if (typeof window === "undefined") return [];
+    try {
+      return JSON.parse(localStorage.getItem(key) || "[]");
+    } catch {
+      return [];
+    }
+  },
+  set(key, value) {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(key, JSON.stringify(value));
+    }
+  },
+};
+ 
+const decodeHtml = (html) => {
   if (typeof window === "undefined") return html;
+  const textarea = document.createElement("textarea");
+  textarea.innerHTML = html;
+  return textarea.value;
+};
+ 
+const formatContent = (html) => {
   try {
-    const txt = document.createElement("textarea");
-    txt.innerHTML = html;
-    const decoded = txt.value;
-    const urlRegex = /(https?:\/\/[^\s]+|[\w.-]+@[\w.-]+\.[a-zA-Z]{2,4})/g;
-    const parts = decoded.split(urlRegex);
-    return parts.map((part, i) => {
-      if (part?.match(/https?:\/\//)) {
+    const decoded = decodeHtml(html || "");
+    const linkRegex = /(https?:\/\/[^\s<>"']+|[\w.+-]+@[\w.-]+\.[a-zA-Z]{2,})/g;
+ 
+    return decoded.split(linkRegex).map((part, index) => {
+      if (/^https?:\/\//.test(part)) {
         return (
-<a
-            key={i}
-            href={part}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ color: "#3182ce", textDecoration: "underline" }}
->
-            {part}
-</a>
-        );
-      } else if (part?.match(/[\w.-]+@[\w.-]+\.[a-zA-Z]{2,4}/)) {
-        return (
-<a
-            key={i}
-            href={`mailto:${part}`}
-            style={{ color: "#3182ce", textDecoration: "underline" }}
->
+<a key={`${part}-${index}`} href={part} target="_blank" rel="noopener noreferrer" style={LINK_STYLE}>
             {part}
 </a>
         );
       }
+ 
+      if (/^[\w.+-]+@[\w.-]+\.[a-zA-Z]{2,}$/.test(part)) {
+        return (
+<a key={`${part}-${index}`} href={`mailto:${part}`} style={LINK_STYLE}>
+            {part}
+</a>
+        );
+      }
+ 
       return part;
     });
-  } catch (e) {
+  } catch {
     return html;
   }
 };
  
+const removeSignature = (text = "") => {
+  const bodyLines = [];
+ 
+  for (const line of text.split(/\n/)) {
+    if (/[◇◆□■ー\-=＝*＊#＃]{5,}/.test(line) || /^(【会社名】|【連絡先】|■署名|URL：)/.test(line)) {
+      break;
+    }
+    bodyLines.push(line);
+  }
+ 
+  return bodyLines.join("\n").trim();
+};
+ 
+const extractRecruitment = (content = "") => {
+  const match = content.match(/([0-9０-９]+|複数|若干)名(以上)?/);
+  return match?.[0] || "記載なし";
+};
+ 
+const getProjectCategories = (project) => {
+  const text = `${project.title || ""}${project.content || ""}${project.skills || ""}`.toLowerCase();
+  const categories = [];
+ 
+  if (/java|php|python|ruby|go|c#|react|next\.js|vue\.js|typescript|javascript|フロントエンド|バックエンド|アプリ|開発/i.test(text)) categories.push("dev");
+  if (/インフラ|サーバ|ネットワーク|aws|azure|gcp|cloud|監視|構築/i.test(text)) categories.push("infra");
+  if (/組み込み|組込|マイコン|制御|c言語|c\+\+|embedded/i.test(text)) categories.push("embedded");
+ 
+  return categories.length ? categories : ["dev"];
+};
+ 
+const styles = {
+  page: { backgroundColor: "#f7fafc", minHeight: "100vh", color: "#2d3748", fontFamily: "sans-serif" },
+  nav: { backgroundColor: "#fff", position: "sticky", top: 0, zIndex: 100, borderBottom: "1px solid #e2e8f0" },
+  navInner: { display: "flex", height: 60, padding: "0 20px", alignItems: "center" },
+  sidebar: { width: 220, flexShrink: 0 },
+  card: { backgroundColor: "#fff", borderRadius: 10, padding: 25, border: "1px solid #edf2f7", display: "flex", flexDirection: "column", position: "relative" },
+  badge: { fontSize: "0.7rem", color: "#fff", padding: "2px 6px", borderRadius: 4, fontWeight: "bold" },
+  primaryButton: { padding: 10, backgroundColor: "#1a365d", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: "bold" },
+  secondaryButton: { padding: 10, backgroundColor: "#3182ce", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: "bold" },
+};
+ 
 export default function Home() {
-  // --- 状態管理 (State) ---
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedProject, setSelectedProject] = useState(null);
@@ -55,352 +136,219 @@ export default function Home() {
   const [selectedSkills, setSelectedSkills] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
   const [stationSuggestions, setStationSuggestions] = useState([]);
-  const [isStationLoading, setIsStationLoading] = useState(false);
   const [isRemoteOnly, setIsRemoteOnly] = useState(false);
-  const [hideClosed, setHideClosed] = useState(true); // ★募集停止を非表示にするチェックボックスの状態（初期値: 非表示）
+  const [hideClosed, setHideClosed] = useState(true);
   const [viewMode, setViewMode] = useState("all");
   const [favFilters, setFavFilters] = useState([]);
   const [historyIds, setHistoryIds] = useState([]);
-  const [readIds, setReadIds] = useState([]); 
-  const [appliedIds, setAppliedIds] = useState([]); 
+  const [readIds, setReadIds] = useState([]);
+  const [appliedIds, setAppliedIds] = useState([]);
   const [deleteTargetId, setDeleteTargetId] = useState(null);
  
-  // --- 定数定義 ---
-  const projectsPerPage = 12;
- 
-  const prefectures = [
-    "北海道", "青森県", "岩手県", "宮城県", "秋田県", "山形県", "福島県",
-    "茨城県", "栃木県", "群馬県", "埼玉県", "千葉県", "東京都", "神奈川県",
-    "新潟県", "富山県", "石川県", "福井県", "山梨県", "長野県", "岐阜県",
-    "静岡県", "愛知県", "三重県", "滋賀県", "京都府", "大阪府", "兵庫県",
-    "奈良県", "和歌山県", "鳥取県", "島根県", "岡山県", "広島県", "山口県",
-    "徳島県", "香川県", "愛媛県", "高知県", "福岡県", "佐賀県", "長崎県",
-    "熊本県", "大分県", "宮崎県", "鹿児島県", "沖縄県",
-  ];
- 
-  const skillCategories = [
-    { label: "Language / Backend", skills: ["Java", "PHP", "Python", "Ruby", "Go", "C#", "C++", "Rust", "Kotlin", "Swift"] },
-    { label: "Frontend", skills: ["React", "Next.js", "Vue.js", "Nuxt.js", "TypeScript", "JavaScript"] },
-    { label: "Infra / OS / Cloud", skills: ["AWS", "Azure", "GCP", "Docker", "Kubernetes", "Linux", "Windows", "Terraform"] },
-    { label: "DB / Tool / CI/CD", skills: ["MySQL", "PostgreSQL", "Oracle", "Git", "GitHub", "CircleCI", "Jenkins", "Ansible"] },
-  ];
- 
-  const sideCategories = [
-    { id: "all", label: "すべて" },
-    { id: "dev", label: "開発" },
-    { id: "infra", label: "インフラ" },
-    { id: "embedded", label: "組み込み" },
-  ];
- 
-  // --- 副作用処理 (Effects) ---
-  useEffect(() => {
-    fetchData();
-  }, []);
- 
-  // --- 業務ロジック関数 ---
-  /**
-   * APIから案件データを取得し、ローカルストレージの保存情報と同期する関数
-   */
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
+ 
     try {
       const res = await fetch("/api/mails");
       const payload = await res.json();
-      if (payload && !payload.error) {
-        const savedFavorites = JSON.parse(localStorage.getItem("favorites") || "[]");
-        const savedHistory = JSON.parse(localStorage.getItem("history") || "[]");
-        const savedRead = JSON.parse(localStorage.getItem("readProjects") || "[]"); 
-        const savedApplied = JSON.parse(localStorage.getItem("appliedIds") || "[]");
+      if (!payload || payload.error) return;
  
-        setHistoryIds(savedHistory);
-        setReadIds(savedRead);
-        setAppliedIds(savedApplied);
+      const favorites = storage.get("favorites");
+      const history = storage.get("history");
+      const read = storage.get("readProjects");
+      const applied = storage.get("appliedIds");
  
-        const dataWithFavs = (payload.data || []).map((item) => ({
-          ...item,
-          favorite: savedFavorites.includes(item.id),
-        }));
-        setProjects(dataWithFavs);
-      }
-    } catch (err) {
-      console.error(err);
+      setHistoryIds(history);
+      setReadIds(read);
+      setAppliedIds(applied);
+      setProjects((payload.data || []).map((item) => ({ ...item, favorite: favorites.includes(item.id) })));
+    } catch (error) {
+      console.error(error);
     } finally {
-      setTimeout(() => setLoading(false), 500);
+      setLoading(false);
+    }
+  }, []);
+ 
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+ 
+  const fetchStations = useCallback(async (keyword) => {
+    if (!keyword) {
+      setStationSuggestions([]);
+      return;
+    }
+ 
+    try {
+      const targetPrefs = selectedPrefs.length ? selectedPrefs : ["大阪府"];
+      const responses = await Promise.all(
+        targetPrefs.slice(0, 5).map((pref) =>
+          fetch(`https://express.heartrails.com/api/json?method=getStations&prefecture=${encodeURIComponent(pref)}`)
+            .then((res) => res.json())
+            .catch(() => ({ response: { station: [] } })),
+        ),
+      );
+ 
+      const stations = responses.flatMap((json) => json?.response?.station?.map((station) => station.name) || []);
+      setStationSuggestions([...new Set(stations.filter((name) => name.includes(keyword)))].slice(0, 10));
+    } catch {
+      setStationSuggestions([]);
+    }
+  }, [selectedPrefs]);
+ 
+  const filteredProjects = useMemo(() => {
+    const query = searchQuery.toLowerCase();
+ 
+    return projects.filter((project) => {
+      if (hideClosed && project.isClosed) return false;
+ 
+      const isApplied = appliedIds.includes(project.id);
+      if (viewMode === "applied") return isApplied;
+      if (isApplied) return false;
+      if (viewMode === "favorites") return project.favorite;
+      if (viewMode === "history") return historyIds.includes(project.id);
+ 
+      if (favFilters.length) {
+        const categories = getProjectCategories(project);
+        if (!favFilters.every((filter) => categories.includes(filter))) return false;
+      }
+ 
+      const pureContent = removeSignature(project.content || "");
+      const searchableText = `${project.title || ""}${project.skills || ""}${pureContent}${project.location || ""}`.toLowerCase();
+      const matchesPref = !selectedPrefs.length || selectedPrefs.some((pref) => project.location?.includes(pref));
+      const matchesSkill = !selectedSkills.length || selectedSkills.every((skill) => searchableText.includes(skill.toLowerCase()));
+      const matchesRemote = !isRemoteOnly || [project.location, project.title, pureContent].some((text) => text?.includes("リモート"));
+ 
+      return searchableText.includes(query) && matchesPref && matchesSkill && matchesRemote;
+    });
+  }, [appliedIds, favFilters, hideClosed, historyIds, isRemoteOnly, projects, searchQuery, selectedPrefs, selectedSkills, viewMode]);
+ 
+  const totalPages = Math.ceil(filteredProjects.length / PAGE_SIZE);
+  const currentItems = filteredProjects.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+ 
+  const toggleSelection = (item, selected, setter) => {
+    setter(selected.includes(item) ? selected.filter((value) => value !== item) : [...selected, item]);
+    setCurrentPage(1);
+  };
+ 
+  const toggleFavorite = (event, id) => {
+    event.stopPropagation();
+    const updated = projects.map((project) => project.id === id ? { ...project, favorite: !project.favorite } : project);
+    setProjects(updated);
+    storage.set("favorites", updated.filter((project) => project.favorite).map((project) => project.id));
+  };
+ 
+  const toggleApplied = (event, id) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const updated = appliedIds.includes(id) ? appliedIds.filter((itemId) => itemId !== id) : [...appliedIds, id];
+    setAppliedIds(updated);
+    storage.set("appliedIds", updated);
+  };
+ 
+  const openProject = (project) => {
+    setSelectedProject(project);
+ 
+    const history = storage.get("history");
+    if (!history.includes(project.id)) {
+      const updated = [project.id, ...history].slice(0, 50);
+      storage.set("history", updated);
+      setHistoryIds(updated);
+    }
+ 
+    const reads = storage.get("readProjects");
+    if (!reads.includes(project.id)) {
+      const updated = [...reads, project.id];
+      storage.set("readProjects", updated);
+      setReadIds(updated);
     }
   };
  
-  /**
-   * 指定されたIDの案件を削除する関数
-   */
+  const handleSendEmail = (event, project) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const targetEmail = project.content?.match(/[\w.+-]+@[\w.-]+\.[a-zA-Z]{2,}/)?.[0] || "";
+    window.location.href = `mailto:${targetEmail}`;
+  };
+ 
   const handleExecuteDelete = async () => {
     if (!deleteTargetId) return;
+ 
     try {
-      const res = await fetch(`/api/mails?id=${deleteTargetId}`, { method: "DELETE" });
-      if (res.ok) {
-        setProjects(projects.filter((p) => p.id !== deleteTargetId));
-        if (selectedProject?.id === deleteTargetId) setSelectedProject(null);
-      }
-    } catch (err) {
-      console.error(err);
+      const res = await fetch(`/api/mails?id=${encodeURIComponent(deleteTargetId)}`, { method: "DELETE" });
+      if (!res.ok) return;
+ 
+      setProjects((prev) => prev.filter((project) => project.id !== deleteTargetId));
+      setSelectedProject((prev) => prev?.id === deleteTargetId ? null : prev);
+    } catch (error) {
+      console.error(error);
     } finally {
       setDeleteTargetId(null);
     }
   };
  
-  /**
-   * 外部APIを用いてキーワードに対応する駅名の候補を取得する関数
-   * @param {string} name - 入力された駅名キーワード
-   */
-  const fetchStations = async (name) => {
-    if (!name || name.length < 1) {
-      setStationSuggestions([]);
-      return;
-    }
-    setIsStationLoading(true);
-    try {
-      let targetPrefs = selectedPrefs.length > 0 ? selectedPrefs : ["大阪府"];
-      const requests = targetPrefs.slice(0, 5).map(pref =>
-        fetch(`https://express.heartrails.com/api/json?method=getStations&prefecture=${encodeURIComponent(pref)}`)
-          .then(res => res.json())
-          .catch(() => ({ response: { station: [] } }))
-      );
-      const results = await Promise.all(requests);
-      let allStations = [];
-      results.forEach(json => {
-        if (json?.response?.station) {
-          allStations = [...allStations, ...json.response.station.map(s => s.name)];
-        }
-      });
-      const suggestions = allStations.filter((stationName) => stationName.includes(name));
-      setStationSuggestions([...new Set(suggestions)].slice(0, 10));
-    } catch (err) {
-      setStationSuggestions([]);
-    } finally {
-      setIsStationLoading(false);
-    }
-  };
- 
-  /**
-   * お気に入り状態のON/OFFを切り替えてローカルストレージへ保存する関数
-   */
-  const toggleFavorite = (e, id) => {
-    e.stopPropagation();
-    const updated = projects.map((p) => (p.id === id ? { ...p, favorite: !p.favorite } : p));
-    setProjects(updated);
-    const favIds = updated.filter((p) => p.favorite).map((p) => p.id);
-    localStorage.setItem("favorites", JSON.stringify(favIds));
-  };
- 
-  /**
-   * 応募済み状態のON/OFFを切り替えてローカルストレージへ保存する関数
-   */
-  const toggleApplied = (e, id) => {
-    e.preventDefault();
-    e.stopPropagation();
-    let updated = appliedIds.includes(id) ? appliedIds.filter(itemId => itemId !== id) : [...appliedIds, id];
-    setAppliedIds(updated);
-    localStorage.setItem("appliedIds", JSON.stringify(updated));
-  };
- 
-  /**
-   * 案件本文からメールアドレスを抽出し、メーラーを起動する関数
-   */
-  const handleSendEmail = (e, project) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const emailMatch = project.content?.match(/[\w.-]+@[\w.-]+\.[a-zA-Z]{2,4}/);
-    const targetEmail = emailMatch ? emailMatch[0] : "";
-    window.location.href = `mailto:${targetEmail}`;
-  };
- 
-  /**
-   * 本文内から特定のパターンに一致する募集人数を抽出する関数
-   */
-  const extractRecruitment = (content) => {
-    if (!content) return "記載なし";
-    const regex = /([0-9０-９]+|複数|若干)名(以上)?/;
-    const match = content.match(regex);
-    return match ? match[0] : "記載なし";
-  };
- 
-  /**
-   * 定型文的な署名やフッターエリアを本文から除外する関数
-   */
-  const removeSignature = (text) => {
-    if (!text) return "";
-    const lines = text.split(/\n/);
-    let bodyLines = [];
-    for (let line of lines) {
-      if (line.match(/[◇◆□■ー\-=＝*＊#＃]{5,}/) || line.match(/^(【会社名】|【連絡先】|■署名|URL：)/)) {
-        break;
-      }
-      bodyLines.push(line);
-    }
-    return bodyLines.join("\n").trim();
-  };
- 
-  /**
-   * 案件テキストを解析し、自動的に分類カテゴリを判定する関数
-   */
-  const getProjectCategories = (p) => {
-    const allText = ((p.title || "") + (p.content || "") + (p.skills || "")).toLowerCase();
-    let cats = [];
-    if (allText.match(/java|php|python|ruby|go|c#|react|next\.js|vue\.js|typescript|javascript|フロントエンド|バックエンド|アプリ|開発/i)) cats.push("dev");
-    if (allText.match(/インフラ|サーバ|ネットワーク|aws|azure|gcp|cloud|監視|構築/i)) cats.push("infra");
-    if (allText.match(/組み込み|組込|マイコン|制御|c言語|c\+\+|embedded/i)) cats.push("embedded");
-    return cats.length > 0 ? cats : ["dev"];
-  };
- 
-  // --- フィルタリング・要素抽出処理 ---
-  const filtered = projects.filter((p) => {
-    // ★「募集停止を非表示」にチェックが入っており、かつ案件が募集停止(isClosed === true)の場合は除外
-    if (hideClosed && p.isClosed) return false;
- 
-    const isApplied = appliedIds.includes(p.id);
-    if (viewMode !== "applied" && isApplied) return false;
-    if (viewMode === "applied") return isApplied;
-    if (viewMode === "favorites") return p.favorite;
-    if (viewMode === "history") return historyIds.includes(p.id);
- 
-    if (favFilters.length > 0) {
-      const pCats = getProjectCategories(p);
-      if (!favFilters.every((f) => pCats.includes(f))) return false;
-    }
- 
-    const pureContent = removeSignature(p.content || "");
-    const contentText = ((p.title || "") + (p.skills || "") + pureContent + (p.location || "")).toLowerCase();
-    const matchesSearch = contentText.includes(searchQuery.toLowerCase());
-    const matchesPref = selectedPrefs.length === 0 ? true : selectedPrefs.some((pref) => p.location?.includes(pref));
-    const matchesSkill = selectedSkills.length === 0 ? true : selectedSkills.every((skill) => contentText.includes(skill.toLowerCase()));
-    const matchesRemote = isRemoteOnly ? (p.location?.includes("リモート") || p.title?.includes("リモート") || pureContent.includes("リモート")) : true;
- 
-    return matchesSearch && matchesPref && matchesSkill && matchesRemote;
-  });
- 
-  const currentItems = filtered.slice((currentPage - 1) * projectsPerPage, currentPage * projectsPerPage);
-  const totalPages = Math.ceil(filtered.length / projectsPerPage);
- 
-  // --- 選択・切り替えイベントハンドラー ---
-  const toggleFavFilter = (id) => {
-    if (id === "all") setFavFilters([]);
-    else setFavFilters((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]));
-    setCurrentPage(1);
-  };
- 
-  const toggleSelection = (item, list, setter) => {
-    if (list.includes(item)) setter(list.filter((i) => i !== item));
-    else setter([...list, item]);
-    setCurrentPage(1);
-  };
- 
-  // --- サブコンポーネント (案件カード) ---
   const ProjectCard = ({ project }) => {
-    const isRead = readIds.includes(project.id); 
+    const isRead = readIds.includes(project.id);
     const isApplied = appliedIds.includes(project.id);
-    const displayPeriod = project.period || "記載なし";
-    const displayRecruitment = extractRecruitment(project.content);
  
     return (
-<div style={{ backgroundColor: "#fff", borderRadius: "10px", padding: "25px", border: "1px solid #edf2f7", display: "flex", flexDirection: "column", position: "relative", opacity: project.isClosed ? 0.7 : 1 }}>
-<div style={{ fontSize: "0.7rem", color: "#a0aec0", marginBottom: "5px" }}>ID: {project.id}</div>
-<div style={{ position: "absolute", top: "15px", right: "15px", display: "flex", alignItems: "center", gap: "8px" }}>
-          {/* ★ 募集停止タグの表示追加 */}
-          {project.isClosed && <span style={{ fontSize: "0.7rem", backgroundColor: "#e53e3e", color: "#fff", padding: "2px 6px", borderRadius: "4px", fontWeight: "bold" }}>募集停止</span>}
-          {isApplied && viewMode !== "applied" && <span style={{ fontSize: "0.7rem", backgroundColor: "#48bb78", color: "#fff", padding: "2px 6px", borderRadius: "4px", fontWeight: "bold" }}>応募済み</span>}
-          {isRead && <span style={{ fontSize: "0.7rem", backgroundColor: "#e2e8f0", color: "#4a5568", padding: "2px 6px", borderRadius: "4px", fontWeight: "bold" }}>既読</span>}
-<button onClick={(e) => toggleFavorite(e, project.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: "1.4rem", color: project.favorite ? "#ed8936" : "#cbd5e0", padding: 0, lineHeight: 1 }}>
+<div style={{ ...styles.card, opacity: project.isClosed ? 0.7 : 1 }}>
+<div style={{ fontSize: "0.7rem", color: "#a0aec0", marginBottom: 5 }}>ID: {project.id}</div>
+<div style={{ position: "absolute", top: 15, right: 15, display: "flex", alignItems: "center", gap: 8 }}>
+          {project.isClosed && <span style={{ ...styles.badge, backgroundColor: "#e53e3e" }}>募集停止</span>}
+          {isApplied && viewMode !== "applied" && <span style={{ ...styles.badge, backgroundColor: "#48bb78" }}>応募済み</span>}
+          {isRead && <span style={{ ...styles.badge, backgroundColor: "#e2e8f0", color: "#4a5568" }}>既読</span>}
+<button onClick={(event) => toggleFavorite(event, project.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: "1.4rem", color: project.favorite ? "#ed8936" : "#cbd5e0", padding: 0, lineHeight: 1 }}>
             {project.favorite ? "★" : "☆"}
 </button>
 </div>
-        {/* 案件タイトルエリア */}
-<h3 style={{ fontSize: "1rem", color: "#1a365d", marginBottom: "20px", fontWeight: "700", paddingRight: "60px", textDecoration: project.isClosed ? "line-through" : "none" }}>{project.title}</h3>
-        {/* 案件詳細情報エリア */}
-<div style={{ fontSize: "0.85rem", flexGrow: 1 }}>
-<div style={{ display: "flex", marginBottom: "8px" }}>
-<span style={{ fontWeight: "bold", minWidth: "80px" }}>【場所】</span>
-<span>{project.location || "記載なし"}</span>
+ 
+        <h3 style={{ fontSize: "1rem", color: "#1a365d", marginBottom: 20, fontWeight: 700, paddingRight: 60, textDecoration: project.isClosed ? "line-through" : "none" }}>
+          {project.title}
+</h3>
+ 
+        <div style={{ fontSize: "0.85rem", flexGrow: 1 }}>
+          {[
+            ["場所", project.location || "記載なし"],
+            ["単価", project.price || "記載なし"],
+            ["期間", project.period || "記載なし"],
+            ["募集人数", extractRecruitment(project.content)],
+          ].map(([label, value]) => (
+<div key={label} style={{ display: "flex", marginBottom: label === "募集人数" ? 0 : 8 }}>
+<span style={{ fontWeight: "bold", minWidth: 80 }}>【{label}】</span>
+<span>{value}</span>
 </div>
-<div style={{ display: "flex", marginBottom: "8px" }}>
-<span style={{ fontWeight: "bold", minWidth: "80px" }}>【単価】</span>
-<span>{project.price || "記載なし"}</span>
-</div>
-<div style={{ display: "flex", marginBottom: "8px" }}>
-<span style={{ fontWeight: "bold", minWidth: "80px" }}>【期間】</span>
-<span>{displayPeriod}</span>
-</div>
-<div style={{ display: "flex" }}>
-<span style={{ fontWeight: "bold", minWidth: "80px" }}>【募集人数】</span>
-<span>{displayRecruitment}</span>
-</div>
+          ))}
 </div>
  
-        {/* 操作ボタンエリア */}
-<div style={{ display: "flex", gap: "8px", marginTop: "20px", flexWrap: "wrap" }}>
-<button onClick={() => { 
-            setSelectedProject(project); 
-            const history = JSON.parse(localStorage.getItem("history") || "[]");
-            if (!history.includes(project.id)) {
-              const newHistory = [project.id, ...history].slice(0, 50);
-              localStorage.setItem("history", JSON.stringify(newHistory));
-              setHistoryIds(newHistory);
-            }
-            const reads = JSON.parse(localStorage.getItem("readProjects") || "[]"); 
-            if (!reads.includes(project.id)) { 
-              const newR = [...reads, project.id]; 
-              localStorage.setItem("readProjects", JSON.stringify(newR)); 
-              setReadIds(newR); 
-            } 
-          }} style={{ flex: "1 1 calc(50% - 4px)", padding: "10px", backgroundColor: "#1a365d", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold" }}>詳細</button>
-<button onClick={(e) => handleSendEmail(e, project)} style={{ flex: "1 1 calc(50% - 4px)", padding: "10px", backgroundColor: "#3182ce", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold" }} disabled={project.isClosed}>メール作成</button>
-<button onClick={(e) => toggleApplied(e, project.id)} style={{ flex: "1 1 100%", padding: "8px", borderRadius: "6px", border: "1px solid #cbd5e0", background: isApplied ? "#e6fffa" : "#fff", color: isApplied ? "#38a169" : "#4a5568", cursor: "pointer", fontWeight: "bold" }}>{isApplied ? "応募解除" : "応募済みにする"}</button>
-<button onClick={(e) => { e.stopPropagation(); setDeleteTargetId(project.id); }} style={{ width: "100%", padding: "6px", borderRadius: "6px", border: "1px solid #fc8181", color: "#e53e3e", background: "#fff", cursor: "pointer", fontSize: "0.75rem" }}>削除</button>
+        <div style={{ display: "flex", gap: 8, marginTop: 20, flexWrap: "wrap" }}>
+<button onClick={() => openProject(project)} style={{ ...styles.primaryButton, flex: "1 1 calc(50% - 4px)" }}>詳細</button>
+<button onClick={(event) => handleSendEmail(event, project)} disabled={project.isClosed} style={{ ...styles.secondaryButton, flex: "1 1 calc(50% - 4px)" }}>メール作成</button>
+<button onClick={(event) => toggleApplied(event, project.id)} style={{ flex: "1 1 100%", padding: 8, borderRadius: 6, border: "1px solid #cbd5e0", background: isApplied ? "#e6fffa" : "#fff", color: isApplied ? "#38a169" : "#4a5568", cursor: "pointer", fontWeight: "bold" }}>
+            {isApplied ? "応募解除" : "応募済みにする"}
+</button>
+<button onClick={(event) => { event.stopPropagation(); setDeleteTargetId(project.id); }} style={{ width: "100%", padding: 6, borderRadius: 6, border: "1px solid #fc8181", color: "#e53e3e", background: "#fff", cursor: "pointer", fontSize: "0.75rem" }}>
+            削除
+</button>
 </div>
 </div>
     );
   };
  
-  // --- メインレンダリング (JSX) ---
   return (
-<div style={{ backgroundColor: "#f7fafc", minHeight: "100vh", color: "#2d3748", fontFamily: "sans-serif" }}>
-      {/* ぐるぐる用のアニメーションCSSをインライン定義 */}
-<style>{`
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-      `}</style>
+<div style={styles.page}>
+<style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
  
-      {/* 共通グローバルナビゲーション */}
-<nav style={{ backgroundColor: "#fff", position: "sticky", top: 0, zIndex: 100, borderBottom: "1px solid #e2e8f0" }}>
-<div style={{ display: "flex", height: "60px", padding: "0 20px", alignItems: "center" }}>
-<div style={{ marginRight: "30px", height: "35px", display: "flex", alignItems: "center" }}>
-<img 
-              src="/Logo_Mark2.png" 
-              alt="GE CREATIVE" 
-              style={{ height: "100%", width: "auto", objectFit: "contain" }} 
-            />
+      <nav style={styles.nav}>
+<div style={styles.navInner}>
+<div style={{ marginRight: 30, height: 35, display: "flex", alignItems: "center" }}>
+<img src="/Logo_Mark2.png" alt="GE CREATIVE" style={{ height: "100%", width: "auto", objectFit: "contain" }} />
 </div>
 <div style={{ display: "flex", height: "100%" }}>
-            {[{ id: "all", label: "案件を探す" }, { id: "applied", label: "応募済み" }, { id: "favorites", label: "お気に入り" }, { id: "history", label: "閲覧履歴" }].map((tab) => {
+            {tabs.map((tab) => {
               const isActive = viewMode === tab.id;
               return (
-<button 
-                  key={tab.id} 
-                  onClick={() => { setViewMode(tab.id); setCurrentPage(1); }} 
-                  style={{ 
-                    background: "none", 
-                    border: "none", 
-                    color: isActive ? "#00bfa5" : "#4a5568", 
-                    cursor: "pointer", 
-                    fontWeight: "600", 
-                    padding: "0 25px", 
-                    height: "100%",
-                    position: "relative",
-                    borderBottom: isActive ? "3px solid #00bfa5" : "3px solid transparent",
-                    boxSizing: "border-box",
-                    transition: "all 0.2s ease"
-                  }}
->
+<button key={tab.id} onClick={() => { setViewMode(tab.id); setCurrentPage(1); }} style={{ background: "none", border: "none", color: isActive ? "#00bfa5" : "#4a5568", cursor: "pointer", fontWeight: 600, padding: "0 25px", height: "100%", borderBottom: isActive ? "3px solid #00bfa5" : "3px solid transparent", boxSizing: "border-box" }}>
                   {tab.label}
 </button>
               );
@@ -409,88 +357,66 @@ export default function Home() {
 </div>
 </nav>
  
-      {/* メインレイアウトコンテナ */}
-<div style={{ display: "flex", padding: "40px 20px", gap: "30px", boxSizing: "border-box" }}>
-        {/* サイドバー（カテゴリ絞り込み） */}
-<aside style={{ width: "220px", flexShrink: 0 }}>
-<h2 style={{ fontSize: "1rem", fontWeight: "bold", marginBottom: "15px", color: "#1a365d", borderLeft: "4px solid #1a365d", paddingLeft: "10px" }}>カテゴリー</h2>
-<div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-            {sideCategories.map((btn) => {
-              const isSelected = btn.id === "all" ? favFilters.length === 0 : favFilters.includes(btn.id);
+      <div style={{ display: "flex", padding: "40px 20px", gap: 30, boxSizing: "border-box" }}>
+<aside style={styles.sidebar}>
+<h2 style={{ fontSize: "1rem", fontWeight: "bold", marginBottom: 15, color: "#1a365d", borderLeft: "4px solid #1a365d", paddingLeft: 10 }}>カテゴリー</h2>
+<div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {sideCategories.map((button) => {
+              const isSelected = button.id === "all" ? !favFilters.length : favFilters.includes(button.id);
               return (
-<button 
-                  key={btn.id} 
-                  onClick={() => toggleFavFilter(btn.id)} 
-                  style={{ 
-                    padding: "12px 15px", 
-                    borderRadius: "8px", 
-                    textAlign: "left", 
-                    border: "1px solid", 
-                    borderColor: isSelected ? "#00bfa5" : "#cbd5e0", 
-                    backgroundColor: isSelected ? "#00bfa5" : "#fff", 
-                    color: isSelected ? "#fff" : "#4a5568", 
-                    cursor: "pointer", 
-                    fontSize: "0.95rem", 
-                    fontWeight: "bold" 
-                  }}
->
-                  {btn.label}
+<button key={button.id} onClick={() => { setFavFilters(button.id === "all" ? [] : favFilters.includes(button.id) ? favFilters.filter((id) => id !== button.id) : [...favFilters, button.id]); setCurrentPage(1); }} style={{ padding: "12px 15px", borderRadius: 8, textAlign: "left", border: "1px solid", borderColor: isSelected ? "#00bfa5" : "#cbd5e0", backgroundColor: isSelected ? "#00bfa5" : "#fff", color: isSelected ? "#fff" : "#4a5568", cursor: "pointer", fontSize: "0.95rem", fontWeight: "bold" }}>
+                  {button.label}
 </button>
               );
             })}
 </div>
 </aside>
  
-        {/* メインコンテンツエリア */}
-<main style={{ flexGrow: 1, maxWidth: "1600px" }}>
-          {/* 検索パネル（「案件を探す」モード時のみ表示） */}
+        <main style={{ flexGrow: 1, maxWidth: 1600 }}>
           {viewMode === "all" && (
-<div style={{ backgroundColor: "#fff", padding: "25px", borderRadius: "10px", border: "1px solid #e2e8f0", marginBottom: "30px" }}>
-<div style={{ position: "relative", marginBottom: "15px" }}>
-<input type="text" placeholder="キーワード・駅名で検索" value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); fetchStations(e.target.value); }} style={{ width: "100%", padding: "14px", border: "2px solid #cbd5e0", borderRadius: "8px", fontSize: "1rem", boxSizing: "border-box" }} />
-                {stationSuggestions.length > 0 && (
-<div style={{ position: "absolute", top: "100%", left: 0, right: 0, backgroundColor: "#fff", border: "1px solid #cbd5e0", zIndex: 100, borderRadius: "8px", boxShadow: "0 4px 6px rgba(0,0,0,0.1)" }}>
+<div style={{ backgroundColor: "#fff", padding: 25, borderRadius: 10, border: "1px solid #e2e8f0", marginBottom: 30 }}>
+<div style={{ position: "relative", marginBottom: 15 }}>
+<input type="text" placeholder="キーワード・駅名で検索" value={searchQuery} onChange={(event) => { setSearchQuery(event.target.value); setCurrentPage(1); fetchStations(event.target.value); }} style={{ width: "100%", padding: 14, border: "2px solid #cbd5e0", borderRadius: 8, fontSize: "1rem", boxSizing: "border-box" }} />
+                {!!stationSuggestions.length && (
+<div style={{ position: "absolute", top: "100%", left: 0, right: 0, backgroundColor: "#fff", border: "1px solid #cbd5e0", zIndex: 100, borderRadius: 8, boxShadow: "0 4px 6px rgba(0,0,0,0.1)" }}>
                     {stationSuggestions.map((name) => (
-<div key={name} onClick={() => { setSearchQuery(name); setStationSuggestions([]); }} style={{ padding: "12px", cursor: "pointer", borderBottom: "1px solid #f7fafc" }}>{name}駅</div>
+<div key={name} onClick={() => { setSearchQuery(name); setStationSuggestions([]); setCurrentPage(1); }} style={{ padding: 12, cursor: "pointer", borderBottom: "1px solid #f7fafc" }}>{name}駅</div>
                     ))}
 </div>
                 )}
 </div>
-              {/* 各種トグル・フィルターボタン */}
-<div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-<button onClick={() => setShowFilters(!showFilters)} style={{ background: "#f8fafc", border: "1px solid #cbd5e0", borderRadius: "6px", padding: "8px 16px", cursor: "pointer", fontSize: "0.85rem", fontWeight: "bold" }}>詳細絞り込み {showFilters ? "▲" : "▼"}</button>
-                {/* チェックボックスエリア（横並びで配置） */}
-<div style={{ display: "flex", gap: "20px", alignItems: "center" }}>
-                  {/* ★ 募集停止を非表示にするトグルを追加 */}
-<label style={{ fontSize: "0.85rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "5px" }}>
-<input type="checkbox" checked={hideClosed} onChange={(e) => { setHideClosed(e.target.checked); setCurrentPage(1); }} /> 
+ 
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+<button onClick={() => setShowFilters((value) => !value)} style={{ background: "#f8fafc", border: "1px solid #cbd5e0", borderRadius: 6, padding: "8px 16px", cursor: "pointer", fontSize: "0.85rem", fontWeight: "bold" }}>詳細絞り込み {showFilters ? "▲" : "▼"}</button>
+<div style={{ display: "flex", gap: 20, alignItems: "center" }}>
+<label style={{ fontSize: "0.85rem", cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}>
+<input type="checkbox" checked={hideClosed} onChange={(event) => { setHideClosed(event.target.checked); setCurrentPage(1); }} />
                     募集停止を非表示
 </label>
-<label style={{ fontSize: "0.85rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "5px" }}>
-<input type="checkbox" checked={isRemoteOnly} onChange={(e) => setIsRemoteOnly(e.target.checked)} /> 
+<label style={{ fontSize: "0.85rem", cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}>
+<input type="checkbox" checked={isRemoteOnly} onChange={(event) => { setIsRemoteOnly(event.target.checked); setCurrentPage(1); }} />
                     リモートのみ
 </label>
 </div>
 </div>
  
-              {/* アコーディオン展開式詳細フィルター */}
               {showFilters && (
-<div style={{ marginTop: "20px", borderTop: "1px solid #edf2f7", paddingTop: "20px" }}>
-                  {skillCategories.map((cat) => (
-<div key={cat.label} style={{ marginBottom: "10px" }}>
-<div style={{ marginBottom: "10px", fontSize: "0.8rem", fontWeight: "bold", color: "#4a5568" }}>{cat.label}</div>
-<div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                        {cat.skills.map(skill => (
-<button key={skill} onClick={() => toggleSelection(skill, selectedSkills, setSelectedSkills)} style={{ padding: "6px 12px", borderRadius: "6px", border: "1px solid", borderColor: selectedSkills.includes(skill) ? "#3182ce" : "#e2e8f0", backgroundColor: selectedSkills.includes(skill) ? "#3182ce" : "#fff", color: selectedSkills.includes(skill) ? "#fff" : "#4a5568", fontSize: "0.75rem", cursor: "pointer" }}>{skill}</button>
+<div style={{ marginTop: 20, borderTop: "1px solid #edf2f7", paddingTop: 20 }}>
+                  {skillCategories.map((category) => (
+<div key={category.label} style={{ marginBottom: 10 }}>
+<div style={{ marginBottom: 10, fontSize: "0.8rem", fontWeight: "bold", color: "#4a5568" }}>{category.label}</div>
+<div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        {category.skills.map((skill) => (
+<button key={skill} onClick={() => toggleSelection(skill, selectedSkills, setSelectedSkills)} style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid", borderColor: selectedSkills.includes(skill) ? "#3182ce" : "#e2e8f0", backgroundColor: selectedSkills.includes(skill) ? "#3182ce" : "#fff", color: selectedSkills.includes(skill) ? "#fff" : "#4a5568", fontSize: "0.75rem", cursor: "pointer" }}>{skill}</button>
                         ))}
 </div>
 </div>
                   ))}
-<div style={{ height: "1px", backgroundColor: "#edf2f7", margin: "20px 0" }} />
-<div style={{ marginBottom: "10px", fontSize: "0.8rem", fontWeight: "bold", color: "#4a5568" }}>都道府県</div>
-<div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-                    {prefectures.map(p => (
-<button key={p} onClick={() => toggleSelection(p, selectedPrefs, setSelectedPrefs)} style={{ padding: "4px 10px", borderRadius: "4px", border: "1px solid", borderColor: selectedPrefs.includes(p) ? "#3182ce" : "#e2e8f0", backgroundColor: selectedPrefs.includes(p) ? "#3182ce" : "#fff", color: selectedPrefs.includes(p) ? "#fff" : "#4a5568", fontSize: "0.75rem", cursor: "pointer" }}>{p}</button>
+<div style={{ height: 1, backgroundColor: "#edf2f7", margin: "20px 0" }} />
+<div style={{ marginBottom: 10, fontSize: "0.8rem", fontWeight: "bold", color: "#4a5568" }}>都道府県</div>
+<div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {prefectures.map((prefecture) => (
+<button key={prefecture} onClick={() => toggleSelection(prefecture, selectedPrefs, setSelectedPrefs)} style={{ padding: "4px 10px", borderRadius: 4, border: "1px solid", borderColor: selectedPrefs.includes(prefecture) ? "#3182ce" : "#e2e8f0", backgroundColor: selectedPrefs.includes(prefecture) ? "#3182ce" : "#fff", color: selectedPrefs.includes(prefecture) ? "#fff" : "#4a5568", fontSize: "0.75rem", cursor: "pointer" }}>{prefecture}</button>
                     ))}
 </div>
 </div>
@@ -498,36 +424,29 @@ export default function Home() {
 </div>
           )}
  
-          {/* セクションタイトルエリア */}
-<h2 style={{ fontSize: "1.2rem", fontWeight: "800", marginBottom: "20px" }}>
-<span style={{ color: "#1a365d", marginRight: "8px" }}>|</span>
-            {viewMode === "all" ? "案件一覧" : viewMode === "applied" ? "応募済み案件" : viewMode === "favorites" ? "お気に入り案件" : "閲覧履歴"} ({filtered.length}件)
+          <h2 style={{ fontSize: "1.2rem", fontWeight: 800, marginBottom: 20 }}>
+<span style={{ color: "#1a365d", marginRight: 8 }}>|</span>
+            {viewMode === "all" ? "案件一覧" : viewMode === "applied" ? "応募済み案件" : viewMode === "favorites" ? "お気に入り案件" : "閲覧履歴"} ({filteredProjects.length}件)
 </h2>
-          {/* リスト表示・読み込み制御 */}
+ 
           {loading ? (
-            /* ローディング時の回転インジケーター（ぐるぐる） */
 <div style={{ display: "flex", justifyContent: "center", alignItems: "center", padding: "100px 0" }}>
-<div style={{ 
-                width: "45px", 
-                height: "45px", 
-                border: "4px solid #cbd5e0", 
-                borderTop: "4px solid #00bfa5", 
-                borderRadius: "50%", 
-                animation: "spin 1s linear infinite" 
-              }} />
+<div style={{ width: 45, height: 45, border: "4px solid #cbd5e0", borderTop: "4px solid #00bfa5", borderRadius: "50%", animation: "spin 1s linear infinite" }} />
 </div>
           ) : (
 <>
-              {filtered.length === 0 ? <div style={{ textAlign: "center", padding: "50px", color: "#718096" }}>該当する案件がありません。</div> : (
-<div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "25px" }}>
-                  {currentItems.map((p) => <ProjectCard key={p.id} project={p} />)}
+              {!filteredProjects.length ? (
+<div style={{ textAlign: "center", padding: 50, color: "#718096" }}>該当する案件がありません。</div>
+              ) : (
+<div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 25 }}>
+                  {currentItems.map((project) => <ProjectCard key={project.id} project={project} />)}
 </div>
               )}
-              {/* ページネーション */}
+ 
               {totalPages > 1 && (
-<div style={{ display: "flex", justifyContent: "center", gap: "10px", marginTop: "40px", marginBottom: "40px" }}>
-                  {[...Array(totalPages)].map((_, i) => (
-<button key={i} onClick={() => { setCurrentPage(i + 1); window.scrollTo(0, 0); }} style={{ padding: "8px 16px", borderRadius: "6px", border: "1px solid #cbd5e0", backgroundColor: currentPage === i + 1 ? "#1a365d" : "#fff", color: currentPage === i + 1 ? "#fff" : "#2d3748", cursor: "pointer" }}>{i + 1}</button>
+<div style={{ display: "flex", justifyContent: "center", gap: 10, marginTop: 40, marginBottom: 40 }}>
+                  {Array.from({ length: totalPages }, (_, index) => (
+<button key={index + 1} onClick={() => { setCurrentPage(index + 1); window.scrollTo(0, 0); }} style={{ padding: "8px 16px", borderRadius: 6, border: "1px solid #cbd5e0", backgroundColor: currentPage === index + 1 ? "#1a365d" : "#fff", color: currentPage === index + 1 ? "#fff" : "#2d3748", cursor: "pointer" }}>{index + 1}</button>
                   ))}
 </div>
               )}
@@ -536,50 +455,44 @@ export default function Home() {
 </main>
 </div>
  
-      {/* 案件詳細モーダルポップアップ */}
       {selectedProject && (
 <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.6)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1000 }} onClick={() => setSelectedProject(null)}>
-<div style={{ backgroundColor: "#fff", width: "95%", maxWidth: "800px", borderRadius: "12px", padding: "40px", maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
-<h2 style={{ color: "#1a365d", marginBottom: "20px", borderBottom: "2px solid #e6fffa", paddingBottom: "10px" }}>
+<div style={{ backgroundColor: "#fff", width: "95%", maxWidth: 800, borderRadius: 12, padding: 40, maxHeight: "80vh", overflowY: "auto" }} onClick={(event) => event.stopPropagation()}>
+<h2 style={{ color: "#1a365d", marginBottom: 20, borderBottom: "2px solid #e6fffa", paddingBottom: 10 }}>
               {selectedProject.title}
-              {/* ★ モーダル内タイトル横にも募集停止バッジを追加 */}
-              {selectedProject.isClosed && <span style={{ fontSize: "0.8rem", backgroundColor: "#e53e3e", color: "#fff", padding: "4px 10px", borderRadius: "4px", fontWeight: "bold", marginLeft: "10px", verticalAlign: "middle" }}>募集停止</span>}
+              {selectedProject.isClosed && <span style={{ ...styles.badge, backgroundColor: "#e53e3e", fontSize: "0.8rem", padding: "4px 10px", marginLeft: 10, verticalAlign: "middle" }}>募集停止</span>}
 </h2>
-<div style={{ fontSize: "0.95rem", marginBottom: "30px", borderBottom: "1px solid #edf2f7", paddingBottom: "20px" }}>
-<div style={{ display: "flex", marginBottom: "10px" }}>
-<span style={{ fontWeight: "bold", minWidth: "100px" }}>【場所】</span>
-<span>{selectedProject.location || "記載なし"}</span>
+ 
+            <div style={{ fontSize: "0.95rem", marginBottom: 30, borderBottom: "1px solid #edf2f7", paddingBottom: 20 }}>
+              {[
+                ["場所", selectedProject.location || "記載なし"],
+                ["単価", selectedProject.price || "記載なし"],
+                ["期間", selectedProject.period || "記載なし"],
+                ["募集人数", extractRecruitment(selectedProject.content)],
+              ].map(([label, value]) => (
+<div key={label} style={{ display: "flex", marginBottom: label === "募集人数" ? 0 : 10 }}>
+<span style={{ fontWeight: "bold", minWidth: 100 }}>【{label}】</span>
+<span>{value}</span>
 </div>
-<div style={{ display: "flex", marginBottom: "10px" }}>
-<span style={{ fontWeight: "bold", minWidth: "100px" }}>【単価】</span>
-<span>{selectedProject.price || "記載なし"}</span>
-</div>
-<div style={{ display: "flex", marginBottom: "10px" }}>
-<span style={{ fontWeight: "bold", minWidth: "100px" }}>【期間】</span>
-<span>{selectedProject.period || "記載なし"}</span>
-</div>
-<div style={{ display: "flex" }}>
-<span style={{ fontWeight: "bold", minWidth: "100px" }}>【募集人数】</span>
-<span>{extractRecruitment(selectedProject.content)}</span>
-</div>
+              ))}
 </div>
  
-            <div style={{ whiteSpace: "pre-wrap", lineHeight: "1.7", fontSize: "0.95rem" }}>
-              {formatContent(removeSignature(selectedProject.content))}
+            <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.7, fontSize: "0.95rem" }}>
+              {formatContent(selectedProject.content)}
 </div>
-<button onClick={() => setSelectedProject(null)} style={{ marginTop: "30px", padding: "8px 24px", backgroundColor: "#edf2f7", color: "#2d3748", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "800" }}>閉じる</button>
+ 
+            <button onClick={() => setSelectedProject(null)} style={{ marginTop: 30, padding: "8px 24px", backgroundColor: "#edf2f7", color: "#2d3748", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 800 }}>閉じる</button>
 </div>
 </div>
       )}
  
-      {/* 削除確認ダイアログ */}
       {deleteTargetId && (
 <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.6)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 1100 }} onClick={() => setDeleteTargetId(null)}>
-<div style={{ backgroundColor: "#fff", padding: "30px", borderRadius: "12px", textAlign: "center" }} onClick={e => e.stopPropagation()}>
-<p style={{ marginBottom: "20px", fontWeight: "bold" }}>この案件を削除してもよろしいですか？</p>
-<div style={{ display: "flex", gap: "12px", justifyContent: "center" }}>
-<button onClick={() => setDeleteTargetId(null)} style={{ padding: "10px 20px", borderRadius: "6px", border: "1px solid #cbd5e0", background: "#fff", cursor: "pointer" }}>キャンセル</button>
-<button onClick={handleExecuteDelete} style={{ padding: "10px 20px", borderRadius: "6px", border: "none", background: "#e53e3e", color: "#fff", cursor: "pointer" }}>削除する</button>
+<div style={{ backgroundColor: "#fff", padding: 30, borderRadius: 12, textAlign: "center" }} onClick={(event) => event.stopPropagation()}>
+<p style={{ marginBottom: 20, fontWeight: "bold" }}>この案件を削除してもよろしいですか？</p>
+<div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
+<button onClick={() => setDeleteTargetId(null)} style={{ padding: "10px 20px", borderRadius: 6, border: "1px solid #cbd5e0", background: "#fff", cursor: "pointer" }}>キャンセル</button>
+<button onClick={handleExecuteDelete} style={{ padding: "10px 20px", borderRadius: 6, border: "none", background: "#e53e3e", color: "#fff", cursor: "pointer" }}>削除する</button>
 </div>
 </div>
 </div>
