@@ -395,7 +395,7 @@ export default function Home() {
 </label>
 <label style={{ fontSize: "0.85rem", cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}>
 <input type="checkbox" checked={isRemoteOnly} onChange={(event) => { setIsRemoteOnly(event.target.checked); setCurrentPage(1); }} />
-                    リモートのみ
+                    リモート案件
 </label>
 </div>
 </div>
