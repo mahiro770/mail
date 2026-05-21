@@ -6,15 +6,20 @@ const LINK_STYLE = { color: "#3182ce", textDecoration: "underline" };
 // 1ページあたりに表示する案件カードの最大数
 const PAGE_SIZE = 12;
 
-// 都道府県リスト（詳細フィルタの都道府県ボタン生成用）
-const prefectures = [
-  "北海道", "青森県", "岩手県", "宮城県", "秋田県", "山形県", "福島県",
-  "茨城県", "栃木県", "群馬県", "埼玉県", "千葉県", "東京都", "神奈川県",
-  "新潟県", "富山県", "石川県", "福井県", "山梨県", "長野県", "岐阜県",
-  "静岡県", "愛知県", "三重県", "滋賀県", "京都府", "大阪府", "兵庫県",
-  "奈良県", "和歌山県", "鳥取県", "島根県", "岡山県", "広島県", "山口県",
-  "徳島県", "香川県", "愛媛県", "高知県", "福岡県", "佐賀県", "長崎県",
-  "熊本県", "大分県", "宮崎県", "鹿児島県", "沖縄県",
+// 地域別の都道府県定義（詳細フィルタの都道府県ボタン生成用）
+const regionalPrefectures = [
+  {
+    region: "東日本",
+    prefs: ["北海道", "青森県", "岩手県", "宮城県", "秋田県", "山形県", "福島県", "茨城県", "栃木県", "群馬県", "埼玉県", "千葉県", "東京都", "神奈川県"],
+  },
+  {
+    region: "中日本",
+    prefs: ["新潟県", "富山県", "石川県", "福井県", "山梨県", "長野県", "岐阜県", "静岡県", "愛知県", "三重県"],
+  },
+  {
+    region: "西日本",
+    prefs: ["滋賀県", "京都府", "大阪府", "兵庫県", "奈良県", "和歌山県", "鳥取県", "島根県", "岡山県", "広島県", "山口県", "徳島県", "香川県", "愛媛県", "高知県", "福岡県", "佐賀県", "長崎県", "熊本県", "大分県", "宮崎県", "鹿児島県", "沖縄県"],
+  },
 ];
 
 // スキルカテゴリと代表的なスキルのリスト（詳細フィルタのスキルボタン生成用）
@@ -33,7 +38,7 @@ const sideCategories = [
   { id: "embedded", label: "組み込み" },
 ];
 
-// ナビゲーションバーに表示するタブの定義
+// ナビゲーションバーに表示するタブ of 定義
 const tabs = [
   { id: "all", label: "案件を探す" },
   { id: "applied", label: "応募済み" },
@@ -43,7 +48,7 @@ const tabs = [
 
 // ブラウザのローカルストレージ（お気に入り、履歴、応募、既読データ）と安全にやり取りするためのラッパーオブジェクト
 const storage = {
-  // 指定されたキーの値（配列形式のJSON）を読み込み。パース失敗時は空配列を返す。
+  // 指定されたキーの値（配列形式 of JSON）を読み込み。パース失敗時は空配列を返す。
   get(key) {
     if (typeof window === "undefined") return [];
     try {
@@ -123,7 +128,7 @@ const extractRecruitment = (content = "") => {
   return match?.[0] || "記載なし";
 };
 
-// 案件の「タイトル」「本文」「必須スキル」に含まれるキーワードから、開発（dev）、インフラ（infra）、組み込み（embedded）のカテゴリを推論する関数
+// 案件の内容からカテゴリーを推定する関数（開発、インフラ、組み込みなど）
 const getProjectCategories = (project) => {
   const text = `${project.title || ""}${project.content || ""}${project.skills || ""}`.toLowerCase();
   const categories = [];
@@ -160,7 +165,7 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");                 // 検索窓のテキスト入力値（キーワード・駅名）
   const [selectedPrefs, setSelectedPrefs] = useState([]);             // フィルタ選択された都道府県の配列
   const [selectedSkills, setSelectedSkills] = useState([]);           // フィルタ選択されたスキルの配列
-  const [showFilters, setShowFilters] = useState(false);              // 詳細絞り込みエリアの開閉フラグ
+  const [showFilters, setShowFilters] = useState(false);              // 詳細絞り込みエリア of 開閉フラグ
   const [stationSuggestions, setStationSuggestions] = useState([]);   // 駅名検索のサジェストリスト（予測変換リスト）
   const [isRemoteOnly, setIsRemoteOnly] = useState(false);            // 「リモート案件のみ」フィルタのON/OFF
   const [hideClosed, setHideClosed] = useState(true);                 // 「募集停止を非表示」フィルタのON/OFF
@@ -373,12 +378,13 @@ export default function Home() {
           {project.title}
         </h3>
 
-        {/* 場所、単価、期間、人数の各項目表示 */}
+        {/* 場所、単価、期間、募集期間、人数の各項目表示 */}
         <div style={{ fontSize: "0.85rem", flexGrow: 1 }}>
           {[
             ["場所", project.location || "記載なし"],
             ["単価", project.price || "記載なし"],
             ["期間", project.period || "記載なし"],
+            ["募集期間", project.end_date || "記載なし"], // AIがメールから抽出した「募集期限」のカラム値を追加
             ["募集人数", extractRecruitment(project.content)],
           ].map(([label, value]) => (
             <div key={label} style={{ display: "flex", marginBottom: label === "募集人数" ? 0 : 8 }}>
@@ -481,7 +487,7 @@ export default function Home() {
               {/* 「詳細絞り込み」がONの場合に展開表示されるスキルボタン・都道府県ボタン群 */}
               {showFilters && (
                 <div style={{ marginTop: 20, borderTop: "1px solid #edf2f7", paddingTop: 20 }}>
-                  {/* スキルボタン群のカテゴリ展開表示 */}
+                  {/* スキルボタン群のカテゴリー展開表示 */}
                   {skillCategories.map((category) => (
                     <div key={category.label} style={{ marginBottom: 10 }}>
                       <div style={{ marginBottom: 10, fontSize: "0.8rem", fontWeight: "bold", color: "#4a5568" }}>{category.label}</div>
@@ -495,13 +501,35 @@ export default function Home() {
                   
                   <div style={{ height: 1, backgroundColor: "#edf2f7", margin: "20px 0" }} />
                   
-                  {/* 都道府県ボタン群の表示 */}
+                  {/* 都道府県ボタン群の表示（東日本、中日本、西日本の地域別アコーディオンUI） */}
                   <div style={{ marginBottom: 10, fontSize: "0.8rem", fontWeight: "bold", color: "#4a5568" }}>都道府県</div>
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    {prefectures.map((prefecture) => (
-                      <button key={prefecture} onClick={() => toggleSelection(prefecture, selectedPrefs, setSelectedPrefs)} style={{ padding: "4px 10px", borderRadius: 4, border: "1px solid", borderColor: selectedPrefs.includes(prefecture) ? "#3182ce" : "#e2e8f0", backgroundColor: selectedPrefs.includes(prefecture) ? "#3182ce" : "#fff", color: selectedPrefs.includes(prefecture) ? "#fff" : "#4a5568", fontSize: "0.75rem", cursor: "pointer" }}>{prefecture}</button>
-                    ))}
-                  </div>
+                  {regionalPrefectures.map((regionGroup) => (
+                    <div key={regionGroup.region} style={{ marginBottom: 15 }}>
+                      <div style={{ fontSize: "0.75rem", fontWeight: "bold", color: "#718096", marginBottom: 6, borderLeft: "3px solid #cbd5e0", paddingLeft: 6 }}>
+                        {regionGroup.region}
+                      </div>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        {regionGroup.prefs.map((prefecture) => (
+                          <button
+                            key={prefecture}
+                            onClick={() => toggleSelection(prefecture, selectedPrefs, setSelectedPrefs)}
+                            style={{
+                              padding: "4px 10px",
+                              borderRadius: 4,
+                              border: "1px solid",
+                              borderColor: selectedPrefs.includes(prefecture) ? "#3182ce" : "#e2e8f0",
+                              backgroundColor: selectedPrefs.includes(prefecture) ? "#3182ce" : "#fff",
+                              color: selectedPrefs.includes(prefecture) ? "#fff" : "#4a5568",
+                              fontSize: "0.75rem",
+                              cursor: "pointer",
+                            }}
+                          >
+                            {prefecture}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
@@ -552,12 +580,13 @@ export default function Home() {
               {selectedProject.isClosed && <span style={{ ...styles.badge, backgroundColor: "#e53e3e", fontSize: "0.8rem", padding: "4px 10px", marginLeft: 10, verticalAlign: "middle" }}>募集停止</span>}
             </h2>
 
-            {/* 詳細情報（場所、単価、期間、募集人数、CCアドレス）の一覧表示 */}
+            {/* 詳細情報（場所、単価、期間、募集期間、募集人数、CCアドレス）の一覧表示 */}
             <div style={{ fontSize: "0.95rem", marginBottom: 30, borderBottom: "1px solid #edf2f7", paddingBottom: 20 }}>
               {[
                 ["場所", selectedProject.location || "記載なし"],
                 ["単価", selectedProject.price || "記載なし"],
                 ["期間", selectedProject.period || "記載なし"],
+                ["募集期間", selectedProject.end_date || "記載なし"], // モーダル内の表示項目にも「募集期間」をバインド
                 ["募集人数", extractRecruitment(selectedProject.content)],
                 ["CC", selectedProject.cc_address || "なし"],
               ].map(([label, value]) => (
