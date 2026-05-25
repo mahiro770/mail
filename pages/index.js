@@ -1,5 +1,39 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+const styles = {
+  // ...既存のスタイル
+  bodySection: {
+    padding: "20px",
+    backgroundColor: "#fff",
+    border: "1px solid #e2e8f0",
+    borderRadius: "8px",
+    marginBottom: "20px",
+    lineHeight: "1.6",
+  },
+  attachmentSection: {
+    padding: "15px",
+    backgroundColor: "#f7fafc", // 本文とは背景色を変えて区別
+    border: "1px solid #e2e8f0",
+    borderRadius: "8px",
+  },
+  attachmentTitle: {
+    fontSize: "0.9rem",
+    color: "#4a5568",
+    marginBottom: "10px",
+  },
+  fileItem: {
+    display: "block",
+    padding: "8px",
+    marginBottom: "5px",
+    backgroundColor: "#fff",
+    border: "1px solid #cbd5e0",
+    borderRadius: "4px",
+    color: "#3182ce",
+    textDecoration: "none",
+    fontSize: "0.85rem",
+  }
+};
+
 // 全体概要:
 // このファイルは簡易的な案件一覧アプリのフロントエンドを提供します。
 // - /api/mails から案件データを取得してリスト表示
@@ -1629,6 +1663,23 @@ export default function Home() {
             >
               {formatContent(selectedProject.content)}
             </div>
+            <div style={{ marginTop: 25, padding: 15, backgroundColor: "#f7fafc", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+              <h4 style={{ margin: "0 0 10px 0", fontSize: "0.9rem", color: "#4a5568" }}>📎 添付ファイル</h4>
+              {selectedProject.attachments && selectedProject.attachments.length > 0 ? (
+                <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                  {selectedProject.attachments.map((file) => (
+                    <li key={file.id} style={{ marginBottom: 5 }}>
+                      <a href={file.file_url} download={file.file_name} style={{ color: "#3182ce", textDecoration: "none", fontSize: "0.9rem" }}>
+                        📄 {file.file_name}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p style={{ fontSize: "0.85rem", color: "#a0aec0", margin: 0 }}>添付ファイルはありません</p>
+              )}
+            </div>
+
 
             <button
               onClick={() => setSelectedProject(null)}

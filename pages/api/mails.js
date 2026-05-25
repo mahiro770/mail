@@ -20,8 +20,10 @@ export default async function handler(req, res) {
         // file_urlからファイルパス（バケット名を含まないパス）を抽出
         // 例: 'https://.../FILES/folder/filename.jpg' -> 'folder/filename.jpg'
         const filePaths = attachments.map(att => {
-          const parts = att.file_url.split('/');
-          return parts[parts.length - 1]; // ※Storageの保存ルールに合わせて調整
+        // URLから pathname 部分のみを抜き出し、'FILES/' で分割して後ろを取得
+        const url = new URL(att.file_url);
+        const pathParts = url.pathname.split('/FILES/');
+        return pathParts.length > 1 ? pathParts[1] : pathParts[0];
         });
 
         const { error: storageError } = await supabase
