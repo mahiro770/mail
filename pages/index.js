@@ -1,9 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+// 全体概要:
+// このファイルは簡易的な案件一覧アプリのフロントエンドを提供します。
+// - /api/mails から案件データを取得してリスト表示
+// - 検索・フィルター・ページング・お気に入り・閲覧履歴などの機能を持つ
+// - ブラウザのローカルストレージに一部の状態を保存して再読み込み後も復元する
+// UI はインラインスタイルで記述されていますが、ロジックは再利用しやすい構成にしています。
+
 const LINK_STYLE = { color: "#3182ce", textDecoration: "underline" };
 // 1ページあたりの表示件数
 const PAGE_SIZE = 24;
-// --- 都道府県名の揺らぎを吸収するための正規化関数を追加 ---
+// --- 都道府県名の揺らぎを吸収するための正規化関数 ---
+// 例: "東京都" -> "東京"、"大阪府" -> "大阪"
+// 地域フィルタや都道府県の比較の際、末尾の都道府県の接尾語を取り除いて比較を安定化します。
 const normalize = (name) => name?.replace(/(都|道|府|県)$/, "") || "";
 // 地域ごとの都道府県リスト
 const regionalPrefectures = [
@@ -154,7 +163,11 @@ const tabs = [
   { id: "history", label: "閲覧履歴" },
 ];
 // ローカルストレージのラッパー
+// - SSR (サーバサイドレンダリング) 環境では `window` が存在しないため安全に扱う
+// - 値は常に JSON でシリアライズして保存／復元する
 const storage = {
+  // 指定キーの値を配列として返す。デフォルトは空配列。
+  // 例外発生時は空配列を返して復帰する（堅牢性のため）。
   get(key) {
     if (typeof window === "undefined") return [];
 
@@ -165,6 +178,7 @@ const storage = {
     }
   },
 
+  // 値を JSON にシリアライズして保存する。`value` は配列やオブジェクトを想定。
   set(key, value) {
     if (typeof window !== "undefined") {
       localStorage.setItem(key, JSON.stringify(value));
@@ -177,6 +191,8 @@ const storage = {
 // window が存在しない SSR 環境にも安全に対応する
 
 // HTMLエンティティをデコードする関数
+// - サーバ側では DOM が無いため元の文字列を返す
+// - ブラウザでは <textarea> を利用してエンティティを安全にデコードする
 const decodeHtml = (html) => {
   if (typeof window === "undefined") return html;
 
@@ -188,13 +204,17 @@ const decodeHtml = (html) => {
 };
 
 // テキスト内のURLやメールアドレスをリンクに変換する関数
-// そのまま表示するとクリックできない文字列を、自動的にアンカーに変換する
+// - HTML エンティティをデコードした上で、URL とメールアドレスを検出して
+//   React 要素のアンカーに置き換える（クリックでメール作成・外部リンクを開けるようにする）
+// - 正規表現はシンプルで多くのケースをカバーするが、完全な URL 検出を保証するものではない
 const formatContent = (html) => {
   try {
     const decoded = decodeHtml(html || "");
 
+    // URL (http/https) または単純なメールアドレスを検出する正規表現
     const linkRegex = /(https?:\/\/[^\s<>"']+|[\w.+-]+@[\w.-]+\.[a-zA-Z]{2,})/g;
 
+    // 正規表現で分割して、URL 部分はリンク要素に変換する
     return decoded.split(linkRegex).map((part, index) => {
       if (/^https?:\/\//.test(part)) {
         return (
@@ -225,14 +245,18 @@ const formatContent = (html) => {
       return part;
     });
   } catch {
+    // 何らかの理由で処理に失敗した場合は元の文字列を返す（表示崩れを避ける）
     return html;
   }
 };
 // メールの署名部分を削除する関数
+// - 単純ではあるが、署名に用いられやすい特殊文字列やラベルを検出してそれ以降を除去する
+// - 完全な署名抽出アルゴリズムではないため、誤検出の可能性はあるが表示用には十分
 const removeSignature = (text = "") => {
   const bodyLines = [];
 
   for (const line of text.split(/\n/)) {
+    // 連続した装飾記号や会社情報ラベルが現れたら署名開始とみなす
     if (
       /[◇◆□■ー\-=＝*＊#＃]{5,}/.test(line) ||
       /^(【会社名】|【連絡先】|■署名|URL：)/.test(line)
@@ -246,6 +270,8 @@ const removeSignature = (text = "") => {
   return bodyLines.join("\n").trim();
 };
 // 募集人数を抽出する関数
+// - 日本語の「名」表記にマッチさせ、数字（全角/半角）や「複数」「若干」なども許容する
+// - 見つからなければ "記載なし" を返す
 const extractRecruitment = (content = "") => {
   const match = content.match(/([0-9０-９]+|複数|若干)名(以上)?/);
 
@@ -253,7 +279,9 @@ const extractRecruitment = (content = "") => {
 };
 
 // 案件のタイトル・本文・スキル情報からカテゴリを判断する
-// お気に入りフィルターや案件一覧の分類表示に使用する
+// - 簡易なキーワードマッチで 'dev', 'infra', 'embedded' のいずれかを判定する
+// - 複数カテゴリに当てはまる場合は複数返す（例: 開発 + インフラ）
+// - どれにも当てはまらなければデフォルトで 'dev' を返す
 const getProjectCategories = (project) => {
   const text =
     `${project.title || ""}${project.content || ""}${project.skills || ""}`.toLowerCase();
@@ -389,8 +417,10 @@ export default function Home() {
   const [deleteTargetId, setDeleteTargetId] = useState(null); // 削除対象の案件ID
 
   const [selectedRegion, setSelectedRegion] = useState("すべて"); // 選択中の地域
-
   // API から案件データを取得し、ローカルストレージに保存された状態と組み合わせる
+  // - fetch で `/api/mails` を呼び、受け取った配列を内部 state (`projects`) にセット
+  // - 取得したデータに対してローカルの `favorites` をマージして、UI 表示を保持する
+  // - 読み込み中は `loading` フラグを true にしてスピナーを表示する
   const fetchData = useCallback(async () => {
     setLoading(true);
 
@@ -409,12 +439,14 @@ export default function Home() {
 
       const applied = storage.get("appliedIds");
 
+      // ローカルに保存された各種 ID リストをロードして state に反映
       setHistoryIds(history);
 
       setReadIds(read);
 
       setAppliedIds(applied);
 
+      // サーバからのデータにローカルお気に入り情報を合成して保持する
       setProjects(
         (payload.data || []).map((item) => ({
           ...item,
@@ -433,6 +465,9 @@ export default function Home() {
   }, [fetchData]);
 
  // 駅名検索のサジェスト候補を取得し、検索入力に補助を追加する
+  // - 外部 API (heartrails) を使って都道府県ごとの駅一覧を取得し、入力に部分一致する駅名を返す
+  // - 呼び出しは非同期で行い、最大 5 都道府県まで並列フェッチする（パフォーマンス対策）
+  // - selectedPrefs が未指定の場合は大阪府をデフォルトで用いる（軽微な UX 対応）
   const fetchStations = useCallback(
     async (keyword) => {
       if (!keyword) {
@@ -459,6 +494,7 @@ export default function Home() {
             json?.response?.station?.map((station) => station.name) || [],
         );
 
+        // 重複を取り除き、入力を含む駅名を最大 10 件に制限して提示する
         setStationSuggestions(
           [...new Set(stations.filter((name) => name.includes(keyword)))].slice(
             0,
@@ -473,6 +509,10 @@ export default function Home() {
   );
 
   // 案件のフィルタリングとソート
+  // - 検索クエリ、選択中の地域・都道府県・スキル・リモートフラグ・お気に入りフィルタなど
+  //   複数の条件を組み合わせて案件を絞り込む
+  // - 募集停止の案件は `hideClosed` が true のとき除外する
+  // - `viewMode` によって表示対象（応募済み・お気に入り・履歴など）を切り替える
   const filteredProjects = useMemo(() => {
     const query = searchQuery.toLowerCase();
 
@@ -533,6 +573,7 @@ export default function Home() {
     selectedRegion,
   ]);
   // フィルタリングされた案件の総ページ数
+  // - 1ページあたり `PAGE_SIZE` 件で切り上げ
   const totalPages = Math.ceil(filteredProjects.length / PAGE_SIZE);
   // 現在のページに表示する案件のスライス
   const currentItems = filteredProjects.slice(
@@ -540,6 +581,8 @@ export default function Home() {
     currentPage * PAGE_SIZE,
   );
   // ページネーションの表示範囲を計算
+  // - 現在のページを中心に前後 siblingCount 分のページ番号を表示する
+  // - 表示範囲が離れている場合は省略記号（...）を表示するためのインデックス計算をする
   const paginationRange = useMemo(() => {
     const siblingCount = 2;
 
@@ -590,6 +633,7 @@ export default function Home() {
   };
 
   // 都道府県やスキルの選択状態をトグルする共通処理
+  // - 選択/解除に応じて配列を更新し、ページを先頭に戻す
   const toggleSelection = (item, selected, setter) => {
     setter(
       selected.includes(item)
@@ -601,6 +645,8 @@ export default function Home() {
   };
 
   // お気に入り状態を切り替え、ローカルストレージにも保存する
+  // - ボタンはカード内にありクリックイベントのバブリングを止める
+  // - 更新後は `projects` の該当要素を更新し、favorite の ID リストを保存する
   const toggleFavorite = (event, id) => {
     event.stopPropagation();
 
@@ -618,6 +664,7 @@ export default function Home() {
     );
   };
 
+  // 応募済み状態を切り替え、ローカルに保存する
   const toggleApplied = (event, id) => {
     event.preventDefault();
 
@@ -633,7 +680,8 @@ export default function Home() {
   };
 
   // 案件詳細を開いた時の処理
-  // 閲覧履歴と既読状態をローカルストレージに保存する
+  // - 選択した案件をモーダル表示用の state に保存
+  // - 閲覧履歴（先頭に追加、最大 50 件に制限）および既読リストをローカルストレージに保存
   const openProject = (project) => {
     setSelectedProject(project);
 
@@ -658,6 +706,9 @@ export default function Home() {
     }
   };
 
+  // メール作成アクション
+  // - 案件本文から最初に見つかったメールアドレスを抽出して mailto: を呼び出す
+  // - `cc_address` があれば CC に付与する
   const handleSendEmail = (event, project) => {
     event.preventDefault();
 
@@ -676,6 +727,8 @@ export default function Home() {
   };
 
   // 案件の削除を実行する API 呼び出し
+  // - 確認ダイアログで選択された `deleteTargetId` を DELETE API に渡す
+  // - 成功したらローカルの案件一覧から削除し、モーダルを閉じる
   const handleExecuteDelete = async () => {
     if (!deleteTargetId) return;
 
@@ -770,7 +823,6 @@ export default function Home() {
         >
           {project.title}
         </h3>
-
         <div style={{ fontSize: "0.85rem", flexGrow: 1 }}>
           {[
             ["場所", project.location || "記載なし"],

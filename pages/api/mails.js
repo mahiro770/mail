@@ -1,74 +1,71 @@
 import { supabase } from '../../lib/supabase'
 
 export default async function handler(req, res) {
-  // --- 削除処理 (DELETE) ---
   if (req.method === 'DELETE') {
-    const { id } = req.query; // 画面からは ID だけ送ればOK！
+    const { id } = req.query; // 削除対象のプロジェクトID
 
-    if (!id) {
-      return res.status(400).json({ error: 'ID is required' });
-    }
+    if (!id) return res.status(400).json({ error: 'ID is required' });
 
     try {
-      // 1. データベースから、これから削除する案件の attachment_url を取得する
-      const { data: project, error: fetchError } = await supabase
-        .from('projects')
-        .select('attachment_url')
-        .eq('id', id)
-        .single();
+      // このプロジェクトに紐づく全ての添付ファイル情報を取得
+      const { data: attachments, error: fetchError } = await supabase
+        .from('attachments')
+        .select('file_url')
+        .eq('project_id', id);
 
-      if (fetchError) {
-        return res.status(500).json({ error: `案件の取得に失敗: ${fetchError.message}` });
+      if (fetchError) throw fetchError;
+
+      // ストレージから該当する全てのファイルを削除
+      if (attachments && attachments.length > 0) {
+        // file_urlからファイルパス（バケット名を含まないパス）を抽出
+        // 例: 'https://.../FILES/folder/filename.jpg' -> 'folder/filename.jpg'
+        const filePaths = attachments.map(att => {
+          const parts = att.file_url.split('/');
+          return parts[parts.length - 1]; // ※Storageの保存ルールに合わせて調整
+        });
+
+        const { error: storageError } = await supabase
+          .storage
+          .from('FILES')
+          .remove(filePaths);
+
+        if (storageError) console.error('ストレージ削除エラー:', storageError);
       }
 
-      // 2. attachment_url が存在する場合、そこからファイル名を抜き出してストレージから削除
-      if (project && project.attachment_url) {
-        // URLの最後にあるファイル名部分（例: "photo.jpg"）だけを抽出します
-        // ※ もし複数ファイルがカンマ区切り等で入っている場合は、URLを分解する処理が必要です
-        const urlParts = project.attachment_url.split('/');
-        const fileName = urlParts[urlParts.length - 1]; 
+      // 3. attachmentsテーブルから関連レコードを削除
+      await supabase.from('attachments').delete().eq('project_id', id);
 
-        if (fileName) {
-          const { error: storageError } = await supabase
-            .storage
-            .from('FILES') // バケット名
-            .remove([fileName]);
-
-          if (storageError) {
-            console.error('ストレージのファイル削除に失敗しました:', storageError.message);
-            // ストレージ削除に失敗しても、一応ログに残してDB削除へ進みます
-          }
-        }
-      }
-
-      // 3. データベースから案件レコードを削除
+      // 4. projectsテーブルから親レコードを削除
       const { error: deleteError } = await supabase
         .from('projects')
         .delete()
         .eq('id', id);
 
-      if (deleteError) {
-        return res.status(500).json({ error: deleteError.message });
-      }
+      if (deleteError) throw deleteError;
 
-      return res.status(200).json({ message: '案件データと添付ファイルを一括削除しました' });
+      return res.status(200).json({ message: '案件と関連ファイルを全て削除しました' });
 
     } catch (err) {
       return res.status(500).json({ error: err.message });
     }
   }
 
-  // GETリクエスト（既存の処理）
+  // GETリクエスト：結合して取得する（これがフロントエンドで一番便利！）
   if (req.method === 'GET') {
     const { data, error } = await supabase
-      .from('projects') 
-      .select('*')
+      .from('projects')
+      .select(`
+        *,
+        attachments (
+          id,
+          file_name,
+          file_url
+        )
+      `)
       .order('created_at', { ascending: false });
 
-    if (error) {
-      return res.status(500).json({ data: null, error: error.message });
-    }
-    return res.status(200).json({ data, error: null });
+    if (error) return res.status(500).json({ error: error.message });
+    return res.status(200).json({ data });
   }
 
   return res.status(405).json({ error: 'Method Not Allowed' });
