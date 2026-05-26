@@ -36,7 +36,7 @@ const styles = {
 
 // 全体概要:
 // このファイルは簡易的な案件一覧アプリのフロントエンドを提供します。
-// - /api/mails から案件データを取得してリスト表示
+// - /api/projects から案件データを取得してリスト表示
 // - 検索・フィルター・ページング・お気に入り・閲覧履歴などの機能を持つ
 // - ブラウザのローカルストレージに一部の状態を保存して再読み込み後も復元する
 // UI はインラインスタイルで記述されていますが、ロジックは再利用しやすい構成にしています。
@@ -452,14 +452,14 @@ export default function Home() {
 
   const [selectedRegion, setSelectedRegion] = useState("すべて"); // 選択中の地域
   // API から案件データを取得し、ローカルストレージに保存された状態と組み合わせる
-  // - fetch で `/api/mails` を呼び、受け取った配列を内部 state (`projects`) にセット
+  // - fetch で `/api/projects` を呼び、受け取った配列を内部 state (`projects`) にセット
   // - 取得したデータに対してローカルの `favorites` をマージして、UI 表示を保持する
   // - 読み込み中は `loading` フラグを true にしてスピナーを表示する
   const fetchData = useCallback(async () => {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/mails");
+      const res = await fetch("/api/projects");
 
       const payload = await res.json();
 
@@ -768,7 +768,7 @@ export default function Home() {
 
     try {
       const res = await fetch(
-        `/api/mails?id=${encodeURIComponent(deleteTargetId)}`,
+        `/api/projects?id=${encodeURIComponent(deleteTargetId)}`,
         { method: "DELETE" },
       );
 
