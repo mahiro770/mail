@@ -613,12 +613,7 @@ export default function Home() {
       {selectedProject && (
 <div style={styles.modalOverlay} onClick={() => setSelectedProject(null)}>
 <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-<button
-              onClick={() => setSelectedProject(null)}
-              style={{ position: "absolute", top: 20, right: 20, background: "none", border: "none", fontSize: "1.5rem", cursor: "pointer", color: "#a0aec0" }}
->
-              ×
-</button>
+
 <h2 style={{ fontSize: "1.3rem", color: "#1a365d", marginBottom: 20, paddingRight: 40 }}>{selectedProject.title}</h2>
 <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 25, fontSize: "0.95rem" }}>
 <div><strong>【場所】</strong> {selectedProject.location || "記載なし"}</div>
