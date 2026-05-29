@@ -179,39 +179,48 @@ export default function Home() {
 
   // supabaseから添付ファイル情報を取得して、 機械語（バイナリデータ）をファイルに復元してダウンロードする
   const handleDownloadFile = async (event, fileUrl, fileName) => {
-    event.preventDefault();
-    event.stopPropagation(); // 親要素のクリックイベント（詳細モーダルを開くなど）を防止
+  event.preventDefault();
+  event.stopPropagation();
 
-    if (!fileUrl) {
-      alert("ファイルURLが存在しません。");
-      return;
+  if (!fileUrl) {
+    alert("ファイルURLが存在しません。");
+    return;
+  }
+
+  try {
+    // 1. URLからパス部分とファイル名部分を分離する
+    const lastSlashIndex = fileUrl.lastIndexOf('/');
+    const baseUrl = fileUrl.substring(0, lastSlashIndex + 1); // URLのベース部分
+    const rawFileName = fileUrl.substring(lastSlashIndex + 1); // 日本語ファイル名部分
+
+    // 2. ファイル名部分だけをエンコードする
+    const encodedFileName = encodeURIComponent(rawFileName);
+    const safeUrl = baseUrl + encodedFileName;
+
+    // 3. エンコード済みのURLで取得する
+    const response = await fetch(safeUrl);
+    if (!response.ok) {
+      throw new Error(`ファイルの取得に失敗しました (Status: ${response.status})`);
     }
 
-    try {
-      // 1. 保存されているURL（機械語データが格納されている場所）にフェッチしてバイナリ(Blob)として取得
-      const response = await fetch(fileUrl);
-      if (!response.ok) throw new Error("ファイルの取得に失敗しました");
-      
-      const blob = await response.blob();
+    const blob = await response.blob();
+    const tempUrl = window.URL.createObjectURL(blob);
 
-      // 2. JavaScriptのBlobオブジェクトから、ブラウザが認識できる「一時的な仮想URL」を生成（復元）
-      const tempUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = tempUrl;
+    // ダウンロード時の名前は元の名前を使用
+    link.download = fileName || rawFileName;
+    document.body.appendChild(link);
+    link.click();
 
-      // 3. 仮想的なダウンロードリンクを作って、プログラムから自動クリックを実行
-      const link = document.createElement("a");
-      link.href = tempUrl;
-      link.download = fileName || "download_file"; // 元のファイル名（拡張子付き）を指定
-      document.body.appendChild(link);
-      link.click();
-
-      // 4. 後片付け（メモリ解放）
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(tempUrl);
-    } catch (error) {
-      console.error("ファイルの書き出し・ダウンロードに失敗しました:", error);
-      alert("ファイルのダウンロードに失敗しました。");
-    }
-  };
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(tempUrl);
+  } catch (error) {
+    console.error("ダウンロードエラー:", error);
+    // エラー時はブラウザに直接開かせることで回避策とする
+    window.open(fileUrl, '_blank');
+  }
+};
 
  // APIから全データをループで取得
   const fetchData = useCallback(async () => {
