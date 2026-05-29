@@ -94,7 +94,7 @@ export default async function handler(req, res) {
 
       const page = parseInt(req.query.page) || 0;
 
-      const pageSize = 100;
+      const pageSize = 1000;
 
       const from = page * pageSize;
 
