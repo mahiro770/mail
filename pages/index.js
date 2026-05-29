@@ -242,7 +242,7 @@ export default function Home() {
       setProjects(
         allProjects.map((item) => ({
           ...item,
-          favorite: favorites.includes(item.projects_id),
+          favorite: favorites.includes(item.id),
         }))
       );
     } catch (error) {
@@ -285,11 +285,11 @@ export default function Home() {
     const allowedPrefsNormalized = currentRegionData ? currentRegionData.prefs.map(normalize) : [];
     return projects.filter((project) => {
       if (hideClosed && project.isClosed) return false;
-      const isApplied = appliedIds.includes(project.projects_id);
+      const isApplied = appliedIds.includes(project.id);
       if (viewMode === "applied") return isApplied;
       if (isApplied) return false;
       if (viewMode === "favorites") return project.favorite;
-      if (viewMode === "history") return historyIds.includes(project.projects_id);
+      if (viewMode === "history") return historyIds.includes(project.id);
       if (favFilters.length) {
         const categories = getProjectCategories(project);
         if (!favFilters.every((filter) => categories.includes(filter))) return false;
@@ -355,9 +355,9 @@ export default function Home() {
 
   const toggleFavorite = (event, id) => {
     event.stopPropagation();
-    const updated = projects.map((p) => p.projects_id === id ? { ...p, favorite: !p.favorite } : p);
+    const updated = projects.map((p) => p.id === id ? { ...p, favorite: !p.favorite } : p);
     setProjects(updated);
-    storage.set("favorites", updated.filter((p) => p.favorite).map((p) => p.projects_id));
+    storage.set("favorites", updated.filter((p) => p.favorite).map((p) => p.id));
   };
 
   const toggleApplied = (event, id) => {
@@ -371,14 +371,14 @@ export default function Home() {
   const openProject = (project) => {
     setSelectedProject(project);
     const history = storage.get("history");
-    if (!history.includes(project.projects_id)) {
-      const updated = [project.projects_id, ...history].slice(0, 50);
+    if (!history.includes(project.id)) {
+      const updated = [project.id, ...history].slice(0, 50);
       storage.set("history", updated);
       setHistoryIds(updated);
     }
     const reads = storage.get("readProjects");
-    if (!reads.includes(project.projects_id)) {
-      const updated = [...reads, project.projects_id];
+    if (!reads.includes(project.id)) {
+      const updated = [...reads, project.id];
       storage.set("readProjects", updated);
       setReadIds(updated);
     }
@@ -419,8 +419,8 @@ export default function Home() {
   }, [selectedRegion]);
 
   const ProjectCard = ({ project }) => {
-    const isRead = readIds.includes(project.projects_id);
-    const isApplied = appliedIds.includes(project.projects_id);
+    const isRead = readIds.includes(project.id);
+    const isApplied = appliedIds.includes(project.id);
     // 添付ファイルの配列を安全に取得（文字列で来ている場合はパース、無ければ空配列）
     const attachments = useMemo(() => {
       if (!project.attachments) return [];
