@@ -19,7 +19,7 @@ export default async function handler(req, res) {
       const { data: attachments, error: fetchError } = await supabaseAdmin
         .from('attachments')
         .select('file_url')
-        .eq('projects_id', id);
+        .eq('attachments_id', id);
 
       if (fetchError) {
         console.error('attachments取得エラー:', fetchError);
@@ -55,7 +55,7 @@ export default async function handler(req, res) {
       const { error: attachmentDeleteError } = await supabaseAdmin
         .from('attachments')
         .delete()
-        .eq('projects_id', id);
+        .eq('attachments_id', id);
 
       if (attachmentDeleteError) {
         console.error('attachments削除エラー:', attachmentDeleteError);
@@ -65,7 +65,7 @@ export default async function handler(req, res) {
       const { error: projectDeleteError } = await supabaseAdmin
         .from('projects')
         .delete()
-        .eq('id', id);
+        .eq('projects_id', id);
 
       if (projectDeleteError) {
         throw projectDeleteError;
@@ -99,19 +99,18 @@ export default async function handler(req, res) {
       const from = page * pageSize;
 
       const to = from + pageSize - 1;
-
       const { data, error } = await supabaseAdmin
-        .from('projects')
-        .select(`
-          *,
-          attachments (
-            id,
-            file_name,
-            file_url
-          )
-        `)
-        .order('created_at', { ascending: false })
-        .range(from, to);
+      .from('projects')
+      .select(`
+       *,
+       attachments!attachments_attachments.projects_id_fkey (
+         id,
+         file_name,
+         file_url
+       )
+    `)
+  .order('created_at', { ascending: false })
+  .range(from, to);
 
       if (error) {
 

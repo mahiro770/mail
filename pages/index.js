@@ -242,7 +242,7 @@ export default function Home() {
       setProjects(
         allProjects.map((item) => ({
           ...item,
-          favorite: favorites.includes(item.id),
+          favorite: favorites.includes(item.projects_id),
         }))
       );
     } catch (error) {
@@ -285,11 +285,11 @@ export default function Home() {
     const allowedPrefsNormalized = currentRegionData ? currentRegionData.prefs.map(normalize) : [];
     return projects.filter((project) => {
       if (hideClosed && project.isClosed) return false;
-      const isApplied = appliedIds.includes(project.id);
+      const isApplied = appliedIds.includes(project.projects_id);
       if (viewMode === "applied") return isApplied;
       if (isApplied) return false;
       if (viewMode === "favorites") return project.favorite;
-      if (viewMode === "history") return historyIds.includes(project.id);
+      if (viewMode === "history") return historyIds.includes(project.projects_id);
       if (favFilters.length) {
         const categories = getProjectCategories(project);
         if (!favFilters.every((filter) => categories.includes(filter))) return false;
@@ -355,9 +355,9 @@ export default function Home() {
 
   const toggleFavorite = (event, id) => {
     event.stopPropagation();
-    const updated = projects.map((p) => p.id === id ? { ...p, favorite: !p.favorite } : p);
+    const updated = projects.map((p) => p.projects_id === id ? { ...p, favorite: !p.favorite } : p);
     setProjects(updated);
-    storage.set("favorites", updated.filter((p) => p.favorite).map((p) => p.id));
+    storage.set("favorites", updated.filter((p) => p.favorite).map((p) => p.projects_id));
   };
 
   const toggleApplied = (event, id) => {
@@ -371,14 +371,14 @@ export default function Home() {
   const openProject = (project) => {
     setSelectedProject(project);
     const history = storage.get("history");
-    if (!history.includes(project.id)) {
-      const updated = [project.id, ...history].slice(0, 50);
+    if (!history.includes(project.projects_id)) {
+      const updated = [project.projects_id, ...history].slice(0, 50);
       storage.set("history", updated);
       setHistoryIds(updated);
     }
     const reads = storage.get("readProjects");
-    if (!reads.includes(project.id)) {
-      const updated = [...reads, project.id];
+    if (!reads.includes(project.projects_id)) {
+      const updated = [...reads, project.projects_id];
       storage.set("readProjects", updated);
       setReadIds(updated);
     }
@@ -401,8 +401,8 @@ export default function Home() {
         alert("削除に失敗しました。サーバーエラーの可能性があります。");
         return;
       }
-      setProjects((prev) => prev.filter((p) => p.id !== deleteTargetId));
-      setSelectedProject((prev) => prev?.id === deleteTargetId ? null : prev);
+      setProjects((prev) => prev.filter((p) => p.projects_id !== deleteTargetId));
+      setSelectedProject((prev) => prev?.projects_id === deleteTargetId ? null : prev);
     } catch (error) {
       console.error("削除リクエスト中にエラーが発生しました:", error);
     } finally {
@@ -419,8 +419,8 @@ export default function Home() {
   }, [selectedRegion]);
 
   const ProjectCard = ({ project }) => {
-    const isRead = readIds.includes(project.id);
-    const isApplied = appliedIds.includes(project.id);
+    const isRead = readIds.includes(project.projects_id);
+    const isApplied = appliedIds.includes(project.projects_id);
     // 添付ファイルの配列を安全に取得（文字列で来ている場合はパース、無ければ空配列）
     const attachments = useMemo(() => {
       if (!project.attachments) return [];
@@ -434,13 +434,13 @@ export default function Home() {
 
     return (
       <div style={{ ...styles.card, opacity: project.isClosed ? 0.7 : 1 }}>
-        <div style={{ fontSize: "0.7rem", color: "#a0aec0", marginBottom: 5 }}>ID: {project.id}</div>
+        <div style={{ fontSize: "0.7rem", color: "#a0aec0", marginBottom: 5 }}>ID: {project.projects_id}</div>
         <div style={{ position: "absolute", top: 15, right: 15, display: "flex", alignItems: "center", gap: 8 }}>
           {project.isClosed && <span style={{ ...styles.badge, backgroundColor: "#e53e3e" }}>募集停止</span>}
           {isApplied && viewMode !== "applied" && <span style={{ ...styles.badge, backgroundColor: "#48bb78" }}>応募済み</span>}
           {isRead && <span style={{ ...styles.badge, backgroundColor: "#e2e8f0", color: "#4a5568" }}>既読</span>}
           <button
-            onClick={(e) => toggleFavorite(e, project.id)}
+            onClick={(e) => toggleFavorite(e, project.projects_id)}
             style={{ background: "none", border: "none", cursor: "pointer", fontSize: "1.4rem", color: project.favorite ? "#ed8936" : "#cbd5e0", padding: 0 }}
           >
             {project.favorite ? "★" : "☆"}
@@ -476,13 +476,13 @@ export default function Home() {
           <button onClick={() => openProject(project)} style={{ ...styles.primaryButton, flex: "1 1 calc(50% - 4px)" }}>詳細</button>
           <button onClick={(e) => handleSendEmail(e, project)} disabled={project.isClosed} style={{ ...styles.secondaryButton, flex: "1 1 calc(50% - 4px)" }}>メール作成</button>
           <button
-            onClick={(e) => toggleApplied(e, project.id)}
+            onClick={(e) => toggleApplied(e, project.projects_id)}
             style={{ flex: "1 1 100%", padding: 8, borderRadius: 6, border: "1px solid #cbd5e0", background: isApplied ? "#e6fffa" : "#fff", color: isApplied ? "#38a169" : "#4a5568", cursor: "pointer", fontWeight: "bold" }}
           >
             {isApplied ? "応募解除" : "応募済みにする"}
           </button>
           <button
-            onClick={(e) => { e.stopPropagation(); setDeleteTargetId(project.id); }}
+            onClick={(e) => { e.stopPropagation(); setDeleteTargetId(project.projects_id); }}
             style={{ width: "100%", padding: 6, borderRadius: 6, border: "1px solid #fc8181", color: "#e53e3e", background: "#fff", cursor: "pointer", fontSize: "0.75rem" }}
           >
             削除
