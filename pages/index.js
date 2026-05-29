@@ -1,4 +1,3 @@
-
 import { useCallback, useEffect, useMemo, useState } from "react";
 const LINK_STYLE = { color: "#3182ce", textDecoration: "underline" };
 // 1ページあたりの表示件数
@@ -93,16 +92,16 @@ const formatContent = (html) => {
     return decoded.split(linkRegex).map((part, index) => {
       if (/^https?:\/\//.test(part)) {
         return (
-          <a key={`${part}-${index}`} href={part} target="_blank" rel="noopener noreferrer" style={LINK_STYLE}>
+<a key={`${part}-${index}`} href={part} target="_blank" rel="noopener noreferrer" style={LINK_STYLE}>
             {part}
-          </a>
+</a>
         );
       }
       if (/^[\w.+-]+@[\w.-]+\.[a-zA-Z]{2,}$/.test(part)) {
         return (
-          <a key={`${part}-${index}`} href={`mailto:${part}`} style={LINK_STYLE}>
+<a key={`${part}-${index}`} href={`mailto:${part}`} style={LINK_STYLE}>
             {part}
-          </a>
+</a>
         );
       }
       return part;
@@ -156,6 +155,7 @@ const styles = {
   attachmentSection: { marginTop: 15, paddingTop: 12, borderTop: "1px dashed #e2e8f0" },
   attachmentLink: { display: "inline-flex", alignItems: "center", gap: 6, fontSize: "0.85rem", color: "#3182ce", textDecoration: "none", marginRight: 12, marginBottom: 4, fontWeight: "500" }
 };
+ 
 // メインコンポーネント
 export default function Home() {
   const [projects, setProjects] = useState([]);
@@ -176,53 +176,73 @@ export default function Home() {
   const [appliedIds, setAppliedIds] = useState([]);
   const [deleteTargetId, setDeleteTargetId] = useState(null);
   const [selectedRegion, setSelectedRegion] = useState("すべて");
-
-  // supabaseから添付ファイル情報を取得して、 機械語（バイナリデータ）をファイルに復元してダウンロードする
- const handleDownloadFile = async (event, fileUrl, fileName) => {
-  event.preventDefault();
-  event.stopPropagation();
-
-  if (!fileUrl) {
-    alert("ファイルURLが存在しません。");
-    return;
-  }
-
-  try {
-    // 1. URLを一旦デコードして「生の文字列」に戻す（二重エンコード防止）
-    // 2. その上で、encodeURI を使ってURL全体を「Web標準の形式」に変換する
-    //    これでスペースが %20 に正しく変換されます。
-    const safeUrl = encodeURI(decodeURI(fileUrl));
-
-    const response = await fetch(safeUrl);
-    if (!response.ok) {
-      throw new Error(`ファイルの取得に失敗しました (Status: ${response.status})`);
+ 
+  // 🕒 【追加箇所1】検索履歴用のStateと保存関数
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [history, setHistory] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        return JSON.parse(localStorage.getItem("searchHistory") || "[]");
+      } catch {
+        return [];
+      }
     }
-
-    const blob = await response.blob();
-    const tempUrl = window.URL.createObjectURL(blob);
-
-    const link = document.createElement("a");
-    link.href = tempUrl;
-    link.download = fileName || "download_file";
-    document.body.appendChild(link);
-    link.click();
-
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(tempUrl);
-  } catch (error) {
-    console.error("ダウンロードエラー:", error);
-    // 最終手段としてブラウザで直接開く
-    window.open(encodeURI(decodeURI(fileUrl)), '_blank');
-  }
-};
-
- // APIから全データをループで取得
+    return [];
+  });
+ 
+  const handleSearchSubmit = (keyword) => {
+    if (!keyword || !keyword.trim()) return;
+    const trimmed = keyword.trim();
+    setHistory((prev) => {
+      const next = [trimmed, ...prev.filter((k) => k !== trimmed)].slice(0, 5);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("searchHistory", JSON.stringify(next));
+      }
+      return next;
+    });
+  };
+ 
+  // supabaseから添付ファイル情報を取得して、 機械語（バイナリデータ）をファイルに復元してダウンロードする
+  const handleDownloadFile = async (event, fileUrl, fileName) => {
+    event.preventDefault();
+    event.stopPropagation();
+ 
+    if (!fileUrl) {
+      alert("ファイルURLが存在しません。");
+      return;
+    }
+ 
+    try {
+      const safeUrl = encodeURI(decodeURI(fileUrl));
+      const response = await fetch(safeUrl);
+      if (!response.ok) {
+        throw new Error(`ファイルの取得に失敗しました (Status: ${response.status})`);
+      }
+ 
+      const blob = await response.blob();
+      const tempUrl = window.URL.createObjectURL(blob);
+ 
+      const link = document.createElement("a");
+      link.href = tempUrl;
+      link.download = fileName || "download_file";
+      document.body.appendChild(link);
+      link.click();
+ 
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(tempUrl);
+    } catch (error) {
+      console.error("ダウンロードエラー:", error);
+      window.open(encodeURI(decodeURI(fileUrl)), '_blank');
+    }
+  };
+ 
+  // APIから全データをループで取得
   const fetchData = useCallback(async () => {
     setLoading(true);
     let allProjects = [];
     let page = 0;
     let isFetching = true;
-
+ 
     try {
       while (isFetching) {
         const res = await fetch(`/api/mails?page=${page}`);
@@ -236,10 +256,10 @@ export default function Home() {
         }
       }
       const favorites = storage.get("favorites");
-      const history = storage.get("history");
+      const historyData = storage.get("history");
       const read = storage.get("readProjects");
       const applied = storage.get("appliedIds");
-      setHistoryIds(history);
+      setHistoryIds(historyData);
       setReadIds(read);
       setAppliedIds(applied);
       setProjects(
@@ -254,11 +274,11 @@ export default function Home() {
       setLoading(false);
     }
   }, []);
-
+ 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
-
+ 
   // 駅名サジェスト取得
   const fetchStations = useCallback(async (keyword) => {
     if (!keyword) {
@@ -280,7 +300,7 @@ export default function Home() {
       setStationSuggestions([]);
     }
   }, [selectedPrefs]);
-
+ 
   // フィルタリング処理
   const filteredProjects = useMemo(() => {
     const query = searchQuery.toLowerCase();
@@ -301,14 +321,12 @@ export default function Home() {
       const searchableText = `${project.title || ""}${project.skills || ""}${pureContent}${project.location || ""}`.toLowerCase();
       const projectLocation = (project.location || "").trim();
       const projectPrefNormalized = normalize(projectLocation);
-      // 地域フィルターの判定 (前方一致)
       if (viewMode === "all" && selectedRegion !== "すべて") {
         const matchesRegion = allowedPrefsNormalized.some((pref) => {
           return projectPrefNormalized.startsWith(pref);
         });
         if (!matchesRegion) return false;
       }
-      // 都道府県詳細フィルターの判定 (前方一致)
       if (selectedPrefs.length) {
         const matchesPref = selectedPrefs.some((pref) => {
           return projectPrefNormalized.startsWith(normalize(pref));
@@ -320,10 +338,10 @@ export default function Home() {
       return searchableText.includes(query) && matchesSkill && matchesRemote;
     });
   }, [appliedIds, favFilters, hideClosed, historyIds, isRemoteOnly, projects, searchQuery, selectedPrefs, selectedSkills, viewMode, selectedRegion]);
-
+ 
   const totalPages = Math.ceil(filteredProjects.length / PAGE_SIZE);
   const currentItems = filteredProjects.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-
+ 
   // ページネーション範囲計算
   const paginationRange = useMemo(() => {
     const siblingCount = 2;
@@ -345,24 +363,24 @@ export default function Home() {
     }
     return [];
   }, [currentPage, totalPages]);
-
+ 
   const changePage = (pageNumber) => {
     setCurrentPage(pageNumber);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
-
+ 
   const toggleSelection = (item, selected, setter) => {
     setter(selected.includes(item) ? selected.filter((value) => value !== item) : [...selected, item]);
     setCurrentPage(1);
   };
-
+ 
   const toggleFavorite = (event, id) => {
     event.stopPropagation();
     const updated = projects.map((p) => p.id === id ? { ...p, favorite: !p.favorite } : p);
     setProjects(updated);
     storage.set("favorites", updated.filter((p) => p.favorite).map((p) => p.id));
   };
-
+ 
   const toggleApplied = (event, id) => {
     event.preventDefault();
     event.stopPropagation();
@@ -370,12 +388,12 @@ export default function Home() {
     setAppliedIds(updated);
     storage.set("appliedIds", updated);
   };
-
+ 
   const openProject = (project) => {
     setSelectedProject(project);
-    const history = storage.get("history");
-    if (!history.includes(project.id)) {
-      const updated = [project.id, ...history].slice(0, 50);
+    const historyData = storage.get("history");
+    if (!historyData.includes(project.id)) {
+      const updated = [project.id, ...historyData].slice(0, 50);
       storage.set("history", updated);
       setHistoryIds(updated);
     }
@@ -386,7 +404,7 @@ export default function Home() {
       setReadIds(updated);
     }
   };
-
+ 
   const handleSendEmail = (event, project) => {
     event.preventDefault();
     event.stopPropagation();
@@ -394,8 +412,7 @@ export default function Home() {
     const ccEmail = project.cc_address || "";
     window.location.href = ccEmail ? `mailto:${targetEmail}?cc=${encodeURIComponent(ccEmail)}` : `mailto:${targetEmail}`;
   };
-
-  // 削除機能の実行関数（エンドポイントを修正済み）
+ 
   const handleExecuteDelete = async () => {
     if (!deleteTargetId) return;
     try {
@@ -412,19 +429,17 @@ export default function Home() {
       setDeleteTargetId(null);
     }
   };
-
-  // 表示対象となる都道府県リストの取得
+ 
   const filterablePrefectures = useMemo(() => {
     if (selectedRegion === "すべて") {
       return regionalPrefectures.flatMap((r) => r.prefs);
     }
     return regionalPrefectures.find((r) => r.region === selectedRegion)?.prefs || [];
   }, [selectedRegion]);
-
+ 
   const ProjectCard = ({ project }) => {
     const isRead = readIds.includes(project.id);
     const isApplied = appliedIds.includes(project.id);
-    // 添付ファイルの配列を安全に取得（文字列で来ている場合はパース、無ければ空配列）
     const attachments = useMemo(() => {
       if (!project.attachments) return [];
       if (Array.isArray(project.attachments)) return project.attachments;
@@ -434,25 +449,25 @@ export default function Home() {
         return [];
       }
     }, [project.attachments]);
-
+ 
     return (
-      <div style={{ ...styles.card, opacity: project.isClosed ? 0.7 : 1 }}>
-        <div style={{ fontSize: "0.7rem", color: "#a0aec0", marginBottom: 5 }}>ID: {project.id}</div>
-        <div style={{ position: "absolute", top: 15, right: 15, display: "flex", alignItems: "center", gap: 8 }}>
+<div style={{ ...styles.card, opacity: project.isClosed ? 0.7 : 1 }}>
+<div style={{ fontSize: "0.7rem", color: "#a0aec0", marginBottom: 5 }}>ID: {project.id}</div>
+<div style={{ position: "absolute", top: 15, right: 15, display: "flex", alignItems: "center", gap: 8 }}>
           {project.isClosed && <span style={{ ...styles.badge, backgroundColor: "#e53e3e" }}>募集停止</span>}
           {isApplied && viewMode !== "applied" && <span style={{ ...styles.badge, backgroundColor: "#48bb78" }}>応募済み</span>}
           {isRead && <span style={{ ...styles.badge, backgroundColor: "#e2e8f0", color: "#4a5568" }}>既読</span>}
-          <button
+<button
             onClick={(e) => toggleFavorite(e, project.id)}
             style={{ background: "none", border: "none", cursor: "pointer", fontSize: "1.4rem", color: project.favorite ? "#ed8936" : "#cbd5e0", padding: 0 }}
-          >
+>
             {project.favorite ? "★" : "☆"}
-          </button>
-        </div>
-        <h3 style={{ fontSize: "1rem", color: "#1a365d", marginBottom: 20, fontWeight: 700, paddingRight: 60, textDecoration: project.isClosed ? "line-through" : "none" }}>
+</button>
+</div>
+<h3 style={{ fontSize: "1rem", color: "#1a365d", marginBottom: 20, fontWeight: 700, paddingRight: 60, textDecoration: project.isClosed ? "line-through" : "none" }}>
           {project.title}
-        </h3>
-        <div style={{ fontSize: "0.85rem", flexGrow: 1 }}>
+</h3>
+<div style={{ fontSize: "0.85rem", flexGrow: 1 }}>
           {[
             ["場所", project.location || "記載なし"],
             ["単価", project.price || "記載なし"],
@@ -460,146 +475,168 @@ export default function Home() {
             ["募集期間", project.end_date || "記載なし"],
             ["募集人数", extractRecruitment(project.content)],
           ].map(([label, value]) => (
-            <div key={label} style={{ display: "flex", marginBottom: label === "募集人数" ? 0 : 8 }}>
-              <span style={{ fontWeight: "bold", minWidth: 80 }}>【{label}】</span>
-              <span>{value}</span>
-            </div>
+<div key={label} style={{ display: "flex", marginBottom: label === "募集人数" ? 0 : 8 }}>
+<span style={{ fontWeight: "bold", minWidth: 80 }}>【{label}】</span>
+<span>{value}</span>
+</div>
           ))}
-
-          {/* カード側の添付ファイル一覧表示（有無の明記のみに変更）▼ */}
+ 
           {attachments.length > 0 && (
-            <div style={{ marginTop: 12, fontSize: "0.8rem", color: "#4a5568", fontWeight: "bold", backgroundColor: "#edf2f7", padding: "4px 8px", borderRadius: 4, display: "inline-block" }}>
+<div style={{ marginTop: 12, fontSize: "0.8rem", color: "#4a5568", fontWeight: "bold", backgroundColor: "#edf2f7", padding: "4px 8px", borderRadius: 4, display: "inline-block" }}>
               📎 添付ファイルあり ({attachments.length})
-            </div>
+</div>
           )}
-          
-
-        </div>
-        <div style={{ display: "flex", gap: 8, marginTop: 20, flexWrap: "wrap" }}>
-          <button onClick={() => openProject(project)} style={{ ...styles.primaryButton, flex: "1 1 calc(50% - 4px)" }}>詳細</button>
-          <button onClick={(e) => handleSendEmail(e, project)} disabled={project.isClosed} style={{ ...styles.secondaryButton, flex: "1 1 calc(50% - 4px)" }}>メール作成</button>
-          <button
+</div>
+<div style={{ display: "flex", gap: 8, marginTop: 20, flexWrap: "wrap" }}>
+<button onClick={() => openProject(project)} style={{ ...styles.primaryButton, flex: "1 1 calc(50% - 4px)" }}>詳細</button>
+<button onClick={(e) => handleSendEmail(e, project)} disabled={project.isClosed} style={{ ...styles.secondaryButton, flex: "1 1 calc(50% - 4px)" }}>メール作成</button>
+<button
             onClick={(e) => toggleApplied(e, project.id)}
             style={{ flex: "1 1 100%", padding: 8, borderRadius: 6, border: "1px solid #cbd5e0", background: isApplied ? "#e6fffa" : "#fff", color: isApplied ? "#38a169" : "#4a5568", cursor: "pointer", fontWeight: "bold" }}
-          >
+>
             {isApplied ? "応募解除" : "応募済みにする"}
-          </button>
-          <button
+</button>
+<button
             onClick={(e) => { e.stopPropagation(); setDeleteTargetId(project.projects_id); }}
             style={{ width: "100%", padding: 6, borderRadius: 6, border: "1px solid #fc8181", color: "#e53e3e", background: "#fff", cursor: "pointer", fontSize: "0.75rem" }}
-          >
+>
             削除
-          </button>
-        </div>
-      </div>
+</button>
+</div>
+</div>
     );
   };
-
+ 
   return (
-    <div style={styles.page}>
-      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
-      <nav style={styles.nav}>
-        <div style={{ ...styles.navInner, justifyContent: "space-between" }}>
-          <div style={{ display: "flex", height: "100%", alignItems: "center" }}>
-            <div style={{ marginRight: 30, height: 35, display: "flex", alignItems: "center" }}>
-              <img src="/Logo_Mark2.png" alt="GE CREATIVE" style={{ height: "100%", width: "auto", objectFit: "contain" }} />
-            </div>
-            <div style={{ display: "flex", height: "100%" }}>
+<div style={styles.page}>
+<style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+<nav style={styles.nav}>
+<div style={{ ...styles.navInner, justifyContent: "space-between" }}>
+<div style={{ display: "flex", height: "100%", alignItems: "center" }}>
+<div style={{ marginRight: 30, height: 35, display: "flex", alignItems: "center" }}>
+<img src="/Logo_Mark2.png" alt="GE CREATIVE" style={{ height: "100%", width: "auto", objectFit: "contain" }} />
+</div>
+<div style={{ display: "flex", height: "100%" }}>
               {tabs.map((tab) => {
                 const isActive = viewMode === tab.id;
                 return (
-                  <button
+<button
                     key={tab.id}
                     onClick={() => { setViewMode(tab.id); setCurrentPage(1); }}
                     style={{ background: "none", border: "none", color: isActive ? "#00bfa5" : "#4a5568", cursor: "pointer", fontWeight: 600, padding: "0 25px", height: "100%", borderBottom: isActive ? "3px solid #00bfa5" : "3px solid transparent", boxSizing: "border-box" }}
-                  >
+>
                     {tab.label}
-                  </button>
+</button>
                 );
               })}
-            </div>
-          </div>
+</div>
+</div>
           {viewMode === "all" && (
-            <div style={{ display: "flex", height: "100%", alignItems: "center" }}>
+<div style={{ display: "flex", height: "100%", alignItems: "center" }}>
               {["すべて", "東日本", "中日本", "西日本"].map((regionName) => {
                 const isRegActive = selectedRegion === regionName;
                 return (
-                  <button
+<button
                     key={regionName}
                     onClick={() => { setSelectedRegion(regionName); setSelectedPrefs([]); setCurrentPage(1); }}
                     style={{ background: "none", border: "none", color: isRegActive ? "#1a365d" : "#718096", cursor: "pointer", fontWeight: 700, padding: "0 15px", height: "100%", fontSize: "0.95rem", borderBottom: isRegActive ? "3px solid #1a365d" : "3px solid transparent", boxSizing: "border-box" }}
-                  >
+>
                     {regionName}
-                  </button>
+</button>
                 );
               })}
-            </div>
+</div>
           )}
-        </div>
-      </nav>
-      <div style={{ display: "flex", padding: "40px 20px", gap: 30, boxSizing: "border-box" }}>
-        <aside style={styles.sidebar}>
-          <h2 style={{ fontSize: "1rem", fontWeight: "bold", marginBottom: 15, color: "#1a365d", borderLeft: "4px solid #1a365d", paddingLeft: 10 }}>カテゴリー</h2>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+</div>
+</nav>
+<div style={{ display: "flex", padding: "40px 20px", gap: 30, boxSizing: "border-box" }}>
+<aside style={styles.sidebar}>
+<h2 style={{ fontSize: "1rem", fontWeight: "bold", marginBottom: 15, color: "#1a365d", borderLeft: "4px solid #1a365d", paddingLeft: 10 }}>カテゴリー</h2>
+<div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {sideCategories.map((button) => {
               const isSelected = button.id === "all" ? !favFilters.length : favFilters.includes(button.id);
               return (
-                <button
+<button
                   key={button.id}
                   onClick={() => { setFavFilters(button.id === "all" ? [] : favFilters.includes(button.id) ? favFilters.filter((id) => id !== button.id) : [...favFilters, button.id]); setCurrentPage(1); }}
                   style={{ padding: "12px 15px", borderRadius: 8, textAlign: "left", border: "1px solid", borderColor: isSelected ? "#00bfa5" : "#cbd5e0", backgroundColor: isSelected ? "#00bfa5" : "#fff", color: isSelected ? "#fff" : "#4a5568", cursor: "pointer", fontSize: "0.95rem", fontWeight: "bold" }}
-                >
+>
                   {button.label}
-                </button>
+</button>
               );
             })}
-          </div>
-        </aside>
-        <main style={{ flexGrow: 1, maxWidth: 1600 }}>
+</div>
+</aside>
+<main style={{ flexGrow: 1, maxWidth: 1600 }}>
           {viewMode === "all" && (
-            <div style={{ backgroundColor: "#fff", padding: 25, borderRadius: 10, border: "1px solid #e2e8f0", marginBottom: 30 }}>
-              <div style={{ position: "relative", marginBottom: 15 }}>
-                <input
+<div style={{ backgroundColor: "#fff", padding: 25, borderRadius: 10, border: "1px solid #e2e8f0", marginBottom: 30 }}>
+<div style={{ position: "relative", marginBottom: 15 }}>
+                {/* 🕒 【追加箇所2】検索履歴サジェスト付きの検索窓 */}
+<input
                   type="text"
                   placeholder="キーワード・駅名で検索"
                   value={searchQuery}
-                  onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); fetchStations(e.target.value); }}
+                  onChange={(e) => { 
+                    setSearchQuery(e.target.value); 
+                    setCurrentPage(1); 
+                    fetchStations(e.target.value); 
+                  }}
+                  onFocus={() => setShowSuggestions(true)}
+                  onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleSearchSubmit(searchQuery);
+                    }
+                  }}
                   style={{ width: "100%", padding: 14, border: "2px solid #cbd5e0", borderRadius: 8, fontSize: "1rem", boxSizing: "border-box" }}
                 />
-                {!!stationSuggestions.length && (
-                  <div style={{ position: "absolute", top: "100%", left: 0, right: 0, backgroundColor: "#fff", border: "1px solid #cbd5e0", zIndex: 100, borderRadius: 8, boxShadow: "0 4px 6px rgba(0,0,0,0.1)" }}>
-                    {stationSuggestions.map((name) => (
-                      <div key={name} onClick={() => { setSearchQuery(name); setStationSuggestions([]); setCurrentPage(1); }} style={{ padding: 12, cursor: "pointer", borderBottom: "1px solid #f7fafc" }}>
-                        {name}駅
-                      </div>
+ 
+                {showSuggestions && history.length > 0 && (
+<div style={{ position: "absolute", top: "100%", left: 0, right: 0, backgroundColor: "#fff", border: "1px solid #cbd5e0", zIndex: 110, borderRadius: 8, boxShadow: "0 4px 6px rgba(0,0,0,0.1)", marginTop: 4 }}>
+<div style={{ padding: "8px 12px", fontSize: "0.75rem", fontWeight: "bold", color: "#a0aec0", borderBottom: "1px solid #edf2f7" }}>
+                      過去の検索履歴
+</div>
+                    {history.map((name) => (
+<div 
+                        key={name} 
+                        onMouseDown={() => { 
+                          setSearchQuery(name); 
+                          handleSearchSubmit(name); 
+                          setCurrentPage(1); 
+                        }} 
+                        style={{ padding: 12, cursor: "pointer", borderBottom: "1px solid #f7fafc", fontSize: "0.9rem", color: "#4a5568", display: "flex", alignItems: "center", gap: 6 }}
+>
+                        🕒 {name}
+</div>
                     ))}
-                  </div>
+</div>
                 )}
+ 
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <button onClick={() => setShowFilters((v) => !v)} style={{ background: "#f8fafc", border: "1px solid #cbd5e0", borderRadius: 6, padding: "8px 16px", cursor: "pointer", fontSize: "0.85rem", fontWeight: "bold" }}>
+<div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+<button onClick={() => setShowFilters((v) => !v)} style={{ background: "#f8fafc", border: "1px solid #cbd5e0", borderRadius: 6, padding: "8px 16px", cursor: "pointer", fontSize: "0.85rem", fontWeight: "bold" }}>
                   詳細絞り込み {showFilters ? "▲" : "▼"}
-                </button>
-                <div style={{ display: "flex", gap: 20, alignItems: "center" }}>
-                  <label style={{ fontSize: "0.85rem", cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}>
-                    <input type="checkbox" checked={hideClosed} onChange={(e) => { setHideClosed(e.target.checked); setCurrentPage(1); }} />
+</button>
+<div style={{ display: "flex", gap: 20, alignItems: "center" }}>
+<label style={{ fontSize: "0.85rem", cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}>
+<input type="checkbox" checked={hideClosed} onChange={(e) => { setHideClosed(e.target.checked); setCurrentPage(1); }} />
                     募集停止を非表示
-                  </label>
-                  <label style={{ fontSize: "0.85rem", cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}>
-                    <input type="checkbox" checked={isRemoteOnly} onChange={(e) => { setIsRemoteOnly(e.target.checked); setCurrentPage(1); }} />
+</label>
+<label style={{ fontSize: "0.85rem", cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}>
+<input type="checkbox" checked={isRemoteOnly} onChange={(e) => { setIsRemoteOnly(e.target.checked); setCurrentPage(1); }} />
                     リモート案件
-                  </label>
-                </div>
-              </div>
+</label>
+</div>
+</div>
               {showFilters && (
-                <div style={{ marginTop: 20, borderTop: "1px solid #edf2f7", paddingTop: 20 }}>
-                  <div style={{ marginBottom: 20 }}>
-                    <div style={{ marginBottom: 10, fontSize: "0.8rem", fontWeight: "bold", color: "#4a5568" }}>
+<div style={{ marginTop: 20, borderTop: "1px solid #edf2f7", paddingTop: 20 }}>
+<div style={{ marginBottom: 20 }}>
+<div style={{ marginBottom: 10, fontSize: "0.8rem", fontWeight: "bold", color: "#4a5568" }}>
                       都道府県
-                    </div>
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+</div>
+<div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                       {filterablePrefectures.map((pref) => (
-                        <button
+<button
                           key={pref}
                           onClick={() => toggleSelection(pref, selectedPrefs, setSelectedPrefs)}
                           style={{
@@ -612,127 +649,122 @@ export default function Home() {
                             fontSize: "0.75rem",
                             cursor: "pointer",
                           }}
-                        >
+>
                           {pref}
-                        </button>
+</button>
                       ))}
-                    </div>
-                  </div>
+</div>
+</div>
                   {skillCategories.map((category) => (
-                    <div key={category.label} style={{ marginBottom: 10 }}>
-                      <div style={{ marginBottom: 10, fontSize: "0.8rem", fontWeight: "bold", color: "#4a5568" }}>{category.label}</div>
-                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+<div key={category.label} style={{ marginBottom: 10 }}>
+<div style={{ marginBottom: 10, fontSize: "0.8rem", fontWeight: "bold", color: "#4a5568" }}>{category.label}</div>
+<div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                         {category.skills.map((skill) => (
-                          <button
+<button
                             key={skill}
                             onClick={() => toggleSelection(skill, selectedSkills, setSelectedSkills)}
                             style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid", borderColor: selectedSkills.includes(skill) ? "#3182ce" : "#e2e8f0", backgroundColor: selectedSkills.includes(skill) ? "#3182ce" : "#fff", color: selectedSkills.includes(skill) ? "#fff" : "#4a5568", fontSize: "0.75rem", cursor: "pointer" }}
-                          >
+>
                             {skill}
-                          </button>
+</button>
                         ))}
-                      </div>
-                    </div>
+</div>
+</div>
                   ))}
-                </div>
+</div>
               )}
-            </div>
+</div>
           )}
-          <div style={{ marginBottom: 15, fontSize: "0.9rem", color: "#4a5568", fontWeight: "bold" }}>
+<div style={{ marginBottom: 15, fontSize: "0.9rem", color: "#4a5568", fontWeight: "bold" }}>
             該当案件数: {filteredProjects.length} 件
-          </div>
+</div>
           {loading ? (
-            <div style={styles.spinner} />
+<div style={styles.spinner} />
           ) : currentItems.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "40px", color: "#718096", backgroundColor: "#fff", borderRadius: 10, border: "1px solid #e2e8f0" }}>
+<div style={{ textAlign: "center", padding: "40px", color: "#718096", backgroundColor: "#fff", borderRadius: 10, border: "1px solid #e2e8f0" }}>
               該当する案件が見つかりませんでした。
-            </div>
+</div>
           ) : (
-            <>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 20, marginBottom: 40 }}>
+<>
+<div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 20, marginBottom: 40 }}>
                 {currentItems.map((project) => (
-                  <ProjectCard key={project.id} project={project} />
+<ProjectCard key={project.id} project={project} />
                 ))}
-              </div>
+</div>
               {totalPages > 1 && (
-                <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 20 }}>
+<div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 20 }}>
                   {paginationRange.map((page, idx) => (
-                    <button
+<button
                       key={idx}
                       onClick={() => typeof page === "number" && changePage(page)}
                       style={{ ...styles.pageBtn, backgroundColor: currentPage === page ? "#1a365d" : "#fff", color: currentPage === page ? "#fff" : "#2d3748" }}
-                    >
+>
                       {page}
-                    </button>
+</button>
                   ))}
-                </div>
+</div>
               )}
-            </>
+</>
           )}
-        </main>
-      </div>
+</main>
+</div>
       {selectedProject && (
-        <div style={styles.modalOverlay} onClick={() => setSelectedProject(null)}>
-          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-
+<div style={styles.modalOverlay} onClick={() => setSelectedProject(null)}>
+<div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+ 
             <h2 style={{ fontSize: "1.3rem", color: "#1a365d", marginBottom: 20, paddingRight: 40 }}>{selectedProject.title}</h2>
-            <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 25, fontSize: "0.95rem" }}>
-              <div><strong>【場所】</strong> {selectedProject.location || "記載なし"}</div>
-              <div><strong>【単価】</strong> {selectedProject.price || "記載なし"}</div>
-              <div><strong>【期間】</strong> {selectedProject.period || "記載なし"}</div>
-              <div><strong>【募集期間】</strong> {selectedProject.end_date || "記載なし"}</div>
-              <div><strong>【スキル】</strong> {selectedProject.skills || "記載なし"}</div>
-              
-              {/* ▼修正箇所2：モーダル側の添付ファイル一覧表示（DL関数発火）▼ */}
+<div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 25, fontSize: "0.95rem" }}>
+<div><strong>【場所】</strong> {selectedProject.location || "記載なし"}</div>
+<div><strong>【単価】</strong> {selectedProject.price || "記載なし"}</div>
+<div><strong>【期間】</strong> {selectedProject.period || "記載なし"}</div>
+<div><strong>【募集期間】</strong> {selectedProject.end_date || "記載なし"}</div>
+<div><strong>【スキル】</strong> {selectedProject.skills || "記載なし"}</div>
               {(() => {
                 const pAttachments = !selectedProject.attachments ? [] : 
                                      Array.isArray(selectedProject.attachments) ? selectedProject.attachments : 
                                      (() => { try { return JSON.parse(selectedProject.attachments); } catch { return []; } })();
                 if (pAttachments.length === 0) return null;
                 return (
-                  <div style={{ marginTop: 5, padding: "10px 14px", backgroundColor: "#f7fafc", borderRadius: 8, border: "1px solid #edf2f7" }}>
-                    <strong style={{ display: "block", marginBottom: 6, color: "#4a5568" }}>📎 添付ファイルダウンロード:</strong>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+<div style={{ marginTop: 5, padding: "10px 14px", backgroundColor: "#f7fafc", borderRadius: 8, border: "1px solid #edf2f7" }}>
+<strong style={{ display: "block", marginBottom: 6, color: "#4a5568" }}>📎 添付ファイルダウンロード:</strong>
+<div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
                       {pAttachments.map((file, i) => {
                         const url = typeof file === "string" ? file : (file.file_url || file.url);
                         const name = typeof file === "string" ? `ファイル ${i + 1}` : (file.file_name || file.name);
                         return (
-                          <a key={i} href={url} style={{ ...styles.attachmentLink, margin: 0 }} onClick={(e) => handleDownloadFile(e, url, name)}>
+<a key={i} href={url} style={{ ...styles.attachmentLink, margin: 0 }} onClick={(e) => handleDownloadFile(e, url, name)}>
                              {name}
-                          </a>
+</a>
                         );
                       })}
-                    </div>
-                  </div>
+</div>
+</div>
                 );
               })()}
-              {/* ▲修正箇所2ここまで▲ */}
-              
-            </div>
-            <hr style={{ border: "none", borderTop: "1px solid #edf2f7", margin: "20px 0" }} />
-            <div style={{ whiteSpace: "pre-wrap", fontSize: "0.9rem", lineHeight: "1.6", color: "#4a5568" }}>
+</div>
+<hr style={{ border: "none", borderTop: "1px solid #edf2f7", margin: "20px 0" }} />
+<div style={{ whiteSpace: "pre-wrap", fontSize: "0.9rem", lineHeight: "1.6", color: "#4a5568" }}>
               {formatContent(selectedProject.content)}
-            </div>
-          </div>
-        </div>
+</div>
+</div>
+</div>
       )}
       {deleteTargetId && (
-        <div style={styles.modalOverlay} onClick={() => setDeleteTargetId(null)}>
-          <div style={{ ...styles.modalContent, maxWidth: 400, textAlign: "center" }} onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ fontSize: "1.1rem", marginBottom: 20 }}>案件を削除しますか？</h3>
-            <p style={{ fontSize: "0.85rem", color: "#718096", marginBottom: 25 }}>この操作は取り消せません。</p>
-            <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
-              <button onClick={() => setDeleteTargetId(null)} style={{ padding: "10px 20px", background: "#edf2f7", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: "bold" }}>
+<div style={styles.modalOverlay} onClick={() => setDeleteTargetId(null)}>
+<div style={{ ...styles.modalContent, maxWidth: 400, textAlign: "center" }} onClick={(e) => e.stopPropagation()}>
+<h3 style={{ fontSize: "1.1rem", marginBottom: 20 }}>案件を削除しますか？</h3>
+<p style={{ fontSize: "0.85rem", color: "#718096", marginBottom: 25 }}>この操作は取り消せません。</p>
+<div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
+<button onClick={() => setDeleteTargetId(null)} style={{ padding: "10px 20px", background: "#edf2f7", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: "bold" }}>
                 キャンセル
-              </button>
-              <button onClick={handleExecuteDelete} style={{ padding: "10px 20px", background: "#e53e3e", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: "bold" }}>
+</button>
+<button onClick={handleExecuteDelete} style={{ padding: "10px 20px", background: "#e53e3e", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: "bold" }}>
                 削除する
-              </button>
-            </div>
-          </div>
-        </div>
+</button>
+</div>
+</div>
+</div>
       )}
-    </div>
+</div>
   );
-
 }
