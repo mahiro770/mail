@@ -1,8 +1,10 @@
-import { supabase } from '../../lib/supabase';
+
+import { supabaseAdmin } from '../../lib/supabaseAdmin';
 
 export default async function handler(req, res) {
+
   // ==========================================
-  // DELETE (プロジェクトおよび紐づく添付ファイルの削除)
+  // DELETE
   // ==========================================
   if (req.method === 'DELETE') {
     const { id } = req.query;
@@ -12,84 +14,133 @@ export default async function handler(req, res) {
     }
 
     try {
-      // 1. attachments テーブルから紐づくファイルURLを取得
-      const { data: attachments, error: fetchError } = await supabase
+
+      // 1. 添付ファイル取得
+      const { data: attachments, error: fetchError } = await supabaseAdmin
         .from('attachments')
         .select('file_url')
         .eq('projects_id', id);
 
       if (fetchError) {
-        console.warn('attachmentsテーブルの取得をスキップしました:', fetchError.message);
-      } else if (attachments && attachments.length > 0) {
-        // 2. 紐づくファイルがストレージにあれば一括削除
-        const fileNames = attachments.map(file => {
-        if (!file.file_url) return null;
-        // URLからファイルパスを正しく抽出する（例: https://.../FILES/folder/my-file.txt -> folder/my-file.txt）
-        return file.file_url.split('/FILES/')[1]; 
-        }).filter(Boolean);
+        console.error('attachments取得エラー:', fetchError);
+      }
+
+      // 2. Storage削除
+      if (attachments?.length > 0) {
+
+        const fileNames = attachments
+          .map(file => {
+            if (!file.file_url) return null;
+
+            const parts = file.file_url.split('/storage/v1/object/public/FILES/');
+
+            return parts[1];
+          })
+          .filter(Boolean);
 
         if (fileNames.length > 0) {
-          const { error: storageError } = await supabase
+
+          const { error: storageError } = await supabaseAdmin
             .storage
             .from('FILES')
             .remove(fileNames);
 
           if (storageError) {
-            console.error('Storage deletion failed:', storageError);
+            console.error('Storage削除エラー:', storageError);
           }
         }
       }
 
-      // 3. プロジェクト本体を削除
-      const { error: projectDeleteError } = await supabase
+      // 3. attachmentsテーブル削除
+      const { error: attachmentDeleteError } = await supabaseAdmin
+        .from('attachments')
+        .delete()
+        .eq('projects_id', id);
+
+      if (attachmentDeleteError) {
+        console.error('attachments削除エラー:', attachmentDeleteError);
+      }
+
+      // 4. projects削除
+      const { error: projectDeleteError } = await supabaseAdmin
         .from('projects')
         .delete()
         .eq('id', id);
 
-      if (projectDeleteError) throw projectDeleteError;
+      if (projectDeleteError) {
+        throw projectDeleteError;
+      }
 
-      return res.status(200).json({ message: '削除成功' });
+      return res.status(200).json({
+        message: '削除成功'
+      });
+
     } catch (err) {
-      console.error(err);
-      return res.status(500).json({ error: err.message });
+
+      console.error('DELETE ERROR:', err);
+
+      return res.status(500).json({
+        error: err.message
+      });
     }
   }
 
   // ==========================================
-  // GET (プロジェクトと添付ファイル一覧の結合取得)
+  // GET
   // ==========================================
   if (req.method === 'GET') {
+
     try {
-      // フロントエンドからページ番号を受け取る (例: /api/projects?page=0)
-      // 指定がなければ 0 ページ目とする
+
       const page = parseInt(req.query.page) || 0;
+
       const pageSize = 1000;
+
       const from = page * pageSize;
+
       const to = from + pageSize - 1;
 
-      const { data, error } = await supabase
+      const { data, error } = await supabaseAdmin
         .from('projects')
         .select(`
           *,
-          attachments!attachments_projects_id_fkey (
+          attachments (
             id,
             file_name,
             file_url
           )
         `)
         .order('created_at', { ascending: false })
-        .range(from, to); // 👈 1,000件ずつ範囲を指定して取得
+        .range(from, to);
 
       if (error) {
-        return res.status(500).json({ data: null, error: error.message });
+
+        console.error('GET ERROR:', error);
+
+        return res.status(500).json({
+          data: null,
+          error: error.message
+        });
       }
 
-      return res.status(200).json({ data, error: null });
+      return res.status(200).json({
+        data,
+        error: null
+      });
+
     } catch (err) {
-      return res.status(500).json({ data: null, error: err.message });
+
+      console.error('SERVER ERROR:', err);
+
+      return res.status(500).json({
+        data: null,
+        error: err.message
+      });
     }
   }
 
-  // 許可されていないメソッドへの対応
-  return res.status(405).json({ error: 'Method Not Allowed' });
+  return res.status(405).json({
+    error: 'Method Not Allowed'
+  });
 }
+

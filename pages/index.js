@@ -222,7 +222,7 @@ export default function Home() {
 
     try {
       while (isFetching) {
-        const res = await fetch(`/api/projects?page=${page}`);
+        const res = await fetch(`/api/mails?page=${page}`);
         const payload = await res.json();
         if (payload.error || !payload.data) break;
         allProjects = [...allProjects, ...payload.data];
