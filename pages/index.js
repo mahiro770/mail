@@ -702,7 +702,7 @@ export default function Home() {
       style={{ ...styles.pageBtn, opacity: currentPage === 1 ? 0.5 : 1, cursor: currentPage === 1 ? "not-allowed" : "pointer" }}
       title="最初のページへ"
 >
-      «
+      最初のページ
 </button>
  
     {/* 5ページ前に戻る */}
@@ -712,7 +712,7 @@ export default function Home() {
       style={{ ...styles.pageBtn, opacity: currentPage === 1 ? 0.5 : 1, cursor: currentPage === 1 ? "not-allowed" : "pointer" }}
       title="5ページ前へ"
 >
-      ‹‹
+      前のページ
 </button>
  
     {/* 1ページ前に戻る */}
@@ -757,7 +757,7 @@ export default function Home() {
       style={{ ...styles.pageBtn, opacity: currentPage === totalPages ? 0.5 : 1, cursor: currentPage === totalPages ? "not-allowed" : "pointer" }}
       title="5ページ次へ"
 >
-      ››
+      次のページ
 </button>
  
     {/* 最後のページへ一気に飛ぶ */}
@@ -767,7 +767,7 @@ export default function Home() {
       style={{ ...styles.pageBtn, opacity: currentPage === totalPages ? 0.5 : 1, cursor: currentPage === totalPages ? "not-allowed" : "pointer" }}
       title="最後のページへ"
 >
-      »
+     最終ページ
 </button>
  
   </div>
