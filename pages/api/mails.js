@@ -15,7 +15,7 @@ export default async function handler(req, res) {
 
     try {
 
-      // 1. 添付ファイル取得
+      // 1. 添付ファイル取得  attachmeints_idはprojects_idの外部キー
       const { data: attachments, error: fetchError } = await supabaseAdmin
         .from('attachments')
         .select('file_url')
