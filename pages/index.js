@@ -705,20 +705,26 @@ return projects
     }
     return [];
   }, [currentPage, totalPages]);
+const changePage = (pageNumber) => {
+  setCurrentPage(pageNumber);
+};
 
-  const changePage = (pageNumber) => {
-    setCurrentPage(pageNumber);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
+const toggleSelection = (item, selected, setter) => {
+  setter(
+    selected.includes(item)
+      ? selected.filter((value) => value !== item)
+      : [...selected, item],
+  );
 
-  const toggleSelection = (item, selected, setter) => {
-    setter(
-      selected.includes(item)
-        ? selected.filter((value) => value !== item)
-        : [...selected, item],
-    );
-    setCurrentPage(1);
-  };
+  setCurrentPage(1);
+};
+
+useEffect(() => {
+  window.scrollTo({
+    top: 0,
+    behavior: "smooth",
+  });
+}, [currentPage]);
 
   const toggleFavorite = (event, id) => {
     event.stopPropagation();
@@ -1427,7 +1433,7 @@ return projects
                   <ProjectCard key={project.id} project={project} />
                 ))}
               </div>
-              {/* 修正後：一気に飛べるボタンを追加 */}
+              {/*一気に飛べるボタンを追加 */}
               {totalPages > 1 && (
                 <div
                   style={{
@@ -1508,8 +1514,7 @@ return projects
                     style={{
                       ...styles.pageBtn,
                       opacity: currentPage === totalPages ? 0.5 : 1,
-                      cursor:
-                        currentPage === totalPages ? "not-allowed" : "pointer",
+                      cursor: currentPage === totalPages ? "not-allowed" : "pointer",
                     }}
                     title="次へ"
                   >
@@ -1525,8 +1530,7 @@ return projects
                     style={{
                       ...styles.pageBtn,
                       opacity: currentPage === totalPages ? 0.5 : 1,
-                      cursor:
-                        currentPage === totalPages ? "not-allowed" : "pointer",
+                      cursor: currentPage === totalPages ? "not-allowed" : "pointer",
                     }}
                    
                   >
@@ -1540,8 +1544,7 @@ return projects
                     style={{
                       ...styles.pageBtn,
                       opacity: currentPage === totalPages ? 0.5 : 1,
-                      cursor:
-                        currentPage === totalPages ? "not-allowed" : "pointer",
+                      cursor: currentPage === totalPages ? "not-allowed" : "pointer",
                     }}
                     
                   >
