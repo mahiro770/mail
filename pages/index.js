@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getCurrentUser, logout } from './admin';
+import { getCurrentUser, logout } from '../lib/admin';
 
 
 const LINK_STYLE = { color: "#3182ce", textDecoration: "underline" };

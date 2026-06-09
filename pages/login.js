@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { login } from "./admin";
+import { login } from "../lib/admin";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
