@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { getCurrentUser, logout } from './admin';
+
+
 const LINK_STYLE = { color: "#3182ce", textDecoration: "underline" };
 // 1ページあたりの表示件数
 const PAGE_SIZE = 24;
@@ -352,7 +355,20 @@ const styles = {
 
 // メインコンポーネント
 export default function Home() {
+  useEffect(() => {
+    async function checkLogin() {
+      const user = getCurrentUser();
+      if (!user) {
+        window.location.href = "/login";
+        return;
+      }
+      console.log("ログイン中:", user.email);
+      setAuthChecked(true);
+    }
+    checkLogin();
+  }, []);
   const [projects, setProjects] = useState([]);
+  const [authChecked, setAuthChecked] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selectedProject, setSelectedProject] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -370,6 +386,9 @@ export default function Home() {
   const [appliedIds, setAppliedIds] = useState([]);
   const [deleteTargetId, setDeleteTargetId] = useState(null);
   const [selectedRegion, setSelectedRegion] = useState("すべて");
+  if (!authChecked) {
+  return <div>認証確認中...</div>;
+}
 
   // 🕒 検索履歴用のStateと保存関数（内部的な保存枠は余裕を持って20件に広げています）
   const [showSuggestions, setShowSuggestions] = useState(false);
