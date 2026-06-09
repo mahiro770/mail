@@ -393,38 +393,6 @@ export default function Home() {
   const [appliedIds, setAppliedIds] = useState([]);
   const [deleteTargetId, setDeleteTargetId] = useState(null);
   const [selectedRegion, setSelectedRegion] = useState("すべて");
-  useEffect(() => {
-  async function checkLogin() {
-    try {
-      const res = await fetch("/api/me", {
-        credentials: "include",
-      });
-
-      if (!res.ok) {
-        setUser(null);
-        setAuthChecked(true);
-        return;
-      }
-
-      const userData = await res.json();
-      setUser(userData);
-    } catch (e) {
-      setUser(null);
-    } finally {
-      setAuthChecked(true);
-    }
-  }
-
-  checkLogin();
-}, []);
-if (!authChecked) {
-  return <div>認証確認中...</div>;
-}
-
-if (!user) {
-  return <div>ログインしてください</div>;
-}
-  
 
   // 🕒 検索履歴用のStateと保存関数（内部的な保存枠は余裕を持って20件に広げています）
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -451,6 +419,7 @@ if (!user) {
       return next;
     });
   };
+
 
   // supabaseから添付ファイル情報を取得して、 機械語（バイナリデータ）をファイルに復元してダウンロードする
   const handleDownloadFile = async (event, fileUrl, fileName) => {
