@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getCurrentUser, logout } from "../api/login";
 
 useEffect(() => {
   const checkLogin = async () => {
