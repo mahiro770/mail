@@ -1,25 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-useEffect(() => {
-  const checkLogin = async () => {
-    const res = await fetch("/api/me", {
-      credentials: "include",
-    });
-
-    if (!res.ok) {
-      window.location.href = "/login";
-      return;
-    }
-
-    const user = await res.json();
-    console.log("ログイン中:", user.email);
-
-    setAuthChecked(true);
-  };
-
-  checkLogin();
-}, []);
-
 const LINK_STYLE = { color: "#3182ce", textDecoration: "underline" };
 // 1ページあたりの表示件数
 const PAGE_SIZE = 24;
@@ -376,7 +356,6 @@ export default function Home() {
   const [authChecked, setAuthChecked] = useState(false);
   const [user, setUser] = useState(null);
   const [projects, setProjects] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [selectedProject, setSelectedProject] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
@@ -393,7 +372,38 @@ export default function Home() {
   const [appliedIds, setAppliedIds] = useState([]);
   const [deleteTargetId, setDeleteTargetId] = useState(null);
   const [selectedRegion, setSelectedRegion] = useState("すべて");
+  useEffect(() => {
+  const checkLogin = async () => {
+    try {
+      const res = await fetch("/api/me", {
+        credentials: "include",
+      });
 
+      if (!res.ok) {
+        window.location.href = "/login";
+        return;
+      }
+
+      const data = await res.json();
+      setUser(data);
+      setAuthChecked(true);
+    } catch {
+      window.location.href = "/login";
+    }
+  };
+
+  checkLogin();
+}, []);
+
+if (!authChecked) {
+  return <div>認証チェック中...</div>;
+}
+
+if (!user) {
+  return <div>ログインが必要です</div>;
+}
+
+return <div>ログイン済み画面</div>;
   // 🕒 検索履歴用のStateと保存関数（内部的な保存枠は余裕を持って20件に広げています）
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [history, setHistory] = useState(() => {
