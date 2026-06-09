@@ -1,12 +1,14 @@
 import { useState } from "react";
-import { login } from "../lib/admin";
+import { useRouter } from "next/router";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
   const handleLogin = async () => {
+    if (loading) return;
     setErrorMessage("");
 
     if (!email) {
@@ -17,14 +19,36 @@ export default function LoginPage() {
     try {
       setLoading(true);
 
-      await login(email);
+      const res = await fetch("/api/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+        }),
+        credentials: "include",
+      });
 
-      // ログイン成功後にトップへ移動
-      window.location.href = "/";
+  let result = null;
+
+if (res.headers.get("content-type")?.includes("application/json")) {
+  result = await res.json().catch(() => null);
+}
+
+if (!res.ok) {
+  setErrorMessage(result?.error ?? "ログインに失敗しました");
+return;
+}
+      
+      router.push("/");
     } catch (error) {
       console.error(error);
 
-      setErrorMessage("ログインに失敗しました");
+      const message =
+        error instanceof Error ? error.message : "ログインに失敗しました";
+
+      setErrorMessage(message);
     } finally {
       setLoading(false);
     }
@@ -43,19 +67,15 @@ export default function LoginPage() {
           style={styles.input}
         />
 
-        {errorMessage && (
-          <div style={styles.error}>
-            {errorMessage}
-          </div>
-        )}
+        {errorMessage && <div style={styles.error}>{errorMessage}</div>}
 
         <button
           onClick={handleLogin}
-          disabled={loading}
+          disabled={loading || !email}
           style={{
             ...styles.button,
-            opacity: loading ? 0.7 : 1,
-            cursor: loading ? "not-allowed" : "pointer",
+            opacity: loading || !email ? 0.7 : 1,
+            cursor: loading || !email ? "not-allowed" : "pointer",
           }}
         >
           {loading ? "ログイン中..." : "ログイン"}
@@ -116,4 +136,3 @@ const styles = {
     fontSize: "0.9rem",
   },
 };
-

@@ -1,6 +1,25 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getCurrentUser, logout } from '../lib/admin';
+import { getCurrentUser, logout } from "../lib/admin";
 
+useEffect(() => {
+  const checkLogin = async () => {
+    const res = await fetch("/api/me", {
+      credentials: "include",
+    });
+
+    if (!res.ok) {
+      window.location.href = "/login";
+      return;
+    }
+
+    const user = await res.json();
+    console.log("ログイン中:", user.email);
+
+    setAuthChecked(true);
+  };
+
+  checkLogin();
+}, []);
 
 const LINK_STYLE = { color: "#3182ce", textDecoration: "underline" };
 // 1ページあたりの表示件数
@@ -355,20 +374,9 @@ const styles = {
 
 // メインコンポーネント
 export default function Home() {
-  useEffect(() => {
-    async function checkLogin() {
-      const user = getCurrentUser();
-      if (!user) {
-        window.location.href = "/login";
-        return;
-      }
-      console.log("ログイン中:", user.email);
-      setAuthChecked(true);
-    }
-    checkLogin();
-  }, []);
-  const [projects, setProjects] = useState([]);
   const [authChecked, setAuthChecked] = useState(false);
+  const [user, setUser] = useState(null);
+  const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedProject, setSelectedProject] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -386,9 +394,38 @@ export default function Home() {
   const [appliedIds, setAppliedIds] = useState([]);
   const [deleteTargetId, setDeleteTargetId] = useState(null);
   const [selectedRegion, setSelectedRegion] = useState("すべて");
-  if (!authChecked) {
+  useEffect(() => {
+  async function checkLogin() {
+    try {
+      const res = await fetch("/api/me", {
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        setUser(null);
+        setAuthChecked(true);
+        return;
+      }
+
+      const userData = await res.json();
+      setUser(userData);
+    } catch (e) {
+      setUser(null);
+    } finally {
+      setAuthChecked(true);
+    }
+  }
+
+  checkLogin();
+}, []);
+if (!authChecked) {
   return <div>認証確認中...</div>;
 }
+
+if (!user) {
+  return <div>ログインしてください</div>;
+}
+  
 
   // 🕒 検索履歴用のStateと保存関数（内部的な保存枠は余裕を持って20件に広げています）
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -542,139 +579,110 @@ export default function Home() {
       ? currentRegionData.prefs.map(normalize)
       : [];
 
-    // 1年前の日付を計算 
+    // 1年前の日付を計算
     const oneYearAgo = new Date();
 
     oneYearAgo.setDate(oneYearAgo.getDate() - 365);
 
-// 案件ごとに、募集終了が近いかどうかを判定してフラグを付与
-return projects
-  .map((project) => {
-    let isExpiringSoon = false;
+    // 案件ごとに、募集終了が近いかどうかを判定してフラグを付与
+    return projects
+      .map((project) => {
+        let isExpiringSoon = false;
 
-    if (project.created_at) {
-      const projectDate = new Date(project.created_at);
+        if (project.created_at) {
+          const projectDate = new Date(project.created_at);
 
-      if (projectDate >= oneYearAgo) {
-        const warningDate = new Date(projectDate);
+          if (projectDate >= oneYearAgo) {
+            const warningDate = new Date(projectDate);
 
-        // 20日経過で警告
-        warningDate.setDate(warningDate.getDate() + 20);
+            // 20日経過で警告
+            warningDate.setDate(warningDate.getDate() + 20);
 
-        isExpiringSoon =
-          new Date() >= warningDate;
-      }
-    }
+            isExpiringSoon = new Date() >= warningDate;
+          }
+        }
 
-    return {
-      ...project,
-      isExpiringSoon,
-    };
-  })
-  .filter((project) => {
-    // 1年以上前は非表示
-    if (project.created_at) {
-      const projectDate = new Date(project.created_at);
+        return {
+          ...project,
+          isExpiringSoon,
+        };
+      })
+      .filter((project) => {
+        // 1年以上前は非表示
+        if (project.created_at) {
+          const projectDate = new Date(project.created_at);
 
-      if (projectDate < oneYearAgo) {
-        return false;
-      }
-    }
+          if (projectDate < oneYearAgo) {
+            return false;
+          }
+        }
 
-    if (hideClosed && project.isClosed) return false;
+        if (hideClosed && project.isClosed) return false;
 
-    const isApplied = appliedIds.includes(project.id);
+        const isApplied = appliedIds.includes(project.id);
 
-    if (viewMode === "applied") return isApplied;
+        if (viewMode === "applied") return isApplied;
 
-    if (isApplied) return false;
+        if (isApplied) return false;
 
-    if (viewMode === "favorites") return project.favorite;
+        if (viewMode === "favorites") return project.favorite;
 
-    if (viewMode === "history") {
-      return historyIds.includes(project.id);
-    }
+        if (viewMode === "history") {
+          return historyIds.includes(project.id);
+        }
 
-    if (favFilters.length) {
-      const categories = getProjectCategories(project);
+        if (favFilters.length) {
+          const categories = getProjectCategories(project);
 
-      if (
-        !favFilters.every((filter) =>
-          categories.includes(filter),
-        )
-      ) {
-        return false;
-      }
-    }
+          if (!favFilters.every((filter) => categories.includes(filter))) {
+            return false;
+          }
+        }
 
-    const pureContent =
-      removeSignature(project.content || "");
+        const pureContent = removeSignature(project.content || "");
 
-    const searchableText =
-      `${project.title || ""}${
-        project.skills || ""
-      }${pureContent}${
-        project.location || ""
-      }`.toLowerCase();
+        const searchableText = `${project.title || ""}${
+          project.skills || ""
+        }${pureContent}${project.location || ""}`.toLowerCase();
 
-    const projectLocation =
-      (project.location || "").trim();
+        const projectLocation = (project.location || "").trim();
 
-    const projectPrefNormalized =
-      normalize(projectLocation);
+        const projectPrefNormalized = normalize(projectLocation);
 
-    // 地域フィルタ
-    if (
-      viewMode === "all" &&
-      selectedRegion !== "すべて"
-    ) {
-      const matchesRegion =
-        allowedPrefsNormalized.some((pref) =>
-          projectPrefNormalized.startsWith(pref),
-        );
+        // 地域フィルタ
+        if (viewMode === "all" && selectedRegion !== "すべて") {
+          const matchesRegion = allowedPrefsNormalized.some((pref) =>
+            projectPrefNormalized.startsWith(pref),
+          );
 
-      if (!matchesRegion) return false;
-    }
+          if (!matchesRegion) return false;
+        }
 
-    // 都道府県フィルタ
-    if (selectedPrefs.length) {
-      const matchesPref =
-        selectedPrefs.some((pref) =>
-          projectPrefNormalized.startsWith(
-            normalize(pref),
-          ),
-        );
+        // 都道府県フィルタ
+        if (selectedPrefs.length) {
+          const matchesPref = selectedPrefs.some((pref) =>
+            projectPrefNormalized.startsWith(normalize(pref)),
+          );
 
-      if (!matchesPref) return false;
-    }
+          if (!matchesPref) return false;
+        }
 
-    // スキル一致
-    const matchesSkill =
-      !selectedSkills.length ||
-      selectedSkills.every((skill) =>
-        searchableText.includes(
-          skill.toLowerCase(),
-        ),
-      );
+        // スキル一致
+        const matchesSkill =
+          !selectedSkills.length ||
+          selectedSkills.every((skill) =>
+            searchableText.includes(skill.toLowerCase()),
+          );
 
-    // リモート案件
-    const matchesRemote =
-      !isRemoteOnly ||
-      [
-        project.location,
-        project.title,
-        pureContent,
-      ].some((text) =>
-        text?.includes("リモート"),
-      );
+        // リモート案件
+        const matchesRemote =
+          !isRemoteOnly ||
+          [project.location, project.title, pureContent].some((text) =>
+            text?.includes("リモート"),
+          );
 
-    return (
-      searchableText.includes(query) &&
-      matchesSkill &&
-      matchesRemote
-    );
-  });
-
+        return searchableText.includes(query) && matchesSkill && matchesRemote;
+      });
   }, [
     appliedIds,
     favFilters,
@@ -724,26 +732,26 @@ return projects
     }
     return [];
   }, [currentPage, totalPages]);
-const changePage = (pageNumber) => {
-  setCurrentPage(pageNumber);
-};
+  const changePage = (pageNumber) => {
+    setCurrentPage(pageNumber);
+  };
 
-const toggleSelection = (item, selected, setter) => {
-  setter(
-    selected.includes(item)
-      ? selected.filter((value) => value !== item)
-      : [...selected, item],
-  );
+  const toggleSelection = (item, selected, setter) => {
+    setter(
+      selected.includes(item)
+        ? selected.filter((value) => value !== item)
+        : [...selected, item],
+    );
 
-  setCurrentPage(1);
-};
+    setCurrentPage(1);
+  };
 
-useEffect(() => {
-  window.scrollTo({
-    top: 0,
-    behavior: "smooth",
-  });
-}, [currentPage]);
+  useEffect(() => {
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  }, [currentPage]);
 
   const toggleFavorite = (event, id) => {
     event.stopPropagation();
@@ -1245,7 +1253,6 @@ useEffect(() => {
                     ))}
                   </div>
                 )}
-
               </div>
               <div
                 style={{
@@ -1473,7 +1480,6 @@ useEffect(() => {
                       opacity: currentPage === 1 ? 0.5 : 1,
                       cursor: currentPage === 1 ? "not-allowed" : "pointer",
                     }}
-                    
                   >
                     最初のページ
                   </button>
@@ -1487,7 +1493,6 @@ useEffect(() => {
                       opacity: currentPage === 1 ? 0.5 : 1,
                       cursor: currentPage === 1 ? "not-allowed" : "pointer",
                     }}
-                    
                   >
                     5ページ前へ
                   </button>
@@ -1533,7 +1538,8 @@ useEffect(() => {
                     style={{
                       ...styles.pageBtn,
                       opacity: currentPage === totalPages ? 0.5 : 1,
-                      cursor: currentPage === totalPages ? "not-allowed" : "pointer",
+                      cursor:
+                        currentPage === totalPages ? "not-allowed" : "pointer",
                     }}
                     title="次へ"
                   >
@@ -1549,9 +1555,9 @@ useEffect(() => {
                     style={{
                       ...styles.pageBtn,
                       opacity: currentPage === totalPages ? 0.5 : 1,
-                      cursor: currentPage === totalPages ? "not-allowed" : "pointer",
+                      cursor:
+                        currentPage === totalPages ? "not-allowed" : "pointer",
                     }}
-                   
                   >
                     5ページ次へ
                   </button>
@@ -1563,9 +1569,9 @@ useEffect(() => {
                     style={{
                       ...styles.pageBtn,
                       opacity: currentPage === totalPages ? 0.5 : 1,
-                      cursor: currentPage === totalPages ? "not-allowed" : "pointer",
+                      cursor:
+                        currentPage === totalPages ? "not-allowed" : "pointer",
                     }}
-                    
                   >
                     最終ページ
                   </button>
