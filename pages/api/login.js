@@ -1,6 +1,5 @@
 import { supabaseAdmin } from "../../lib/supabaseAdmin";
 import crypto from "crypto";
-import cookie from "cookie";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -21,17 +20,12 @@ export default async function handler(req, res) {
       .eq("user_email", email.trim())
       .single();
 
-    if (error) {
-      return res.status(500).json({ error: "DBエラー" });
-    }
-
-    if (!data) {
+    if (error || !data) {
       return res.status(401).json({ error: "管理者ではありません" });
     }
 
-    // 既存セッション削除
-    const cookies = cookie.parse(req.headers.cookie || "");
-    const oldToken = cookies.token;
+    // 既存トークン取得（Next.js標準）
+    const oldToken = req.cookies?.token;
 
     if (oldToken) {
       await supabaseAdmin
@@ -55,18 +49,14 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "セッション作成に失敗しました" });
     }
 
-    // cookie設定（Vercel完全対応）
+    // cookie設定（Next.js標準）
     const isProd = process.env.NODE_ENV === "production";
 
     res.setHeader(
       "Set-Cookie",
-      cookie.serialize("token", token, {
-        httpOnly: true,
-        secure: isProd,
-        sameSite: "lax",
-        path: "/",
-        maxAge: 60 * 60 * 24 * 7, // 7日
-      })
+      `token=${token}; Path=/; HttpOnly; SameSite=Lax; ${
+        isProd ? "Secure;" : ""
+      } Max-Age=${60 * 60 * 24 * 7}`
     );
 
     return res.status(200).json({

@@ -1,10 +1,8 @@
-import { supabaseAdmin } from "../../lib/supabaseAdmin";
-import cookie from "cookie";
+import { supabaseAdmin } from "../lib/supabaseAdmin";
 
 export default async function handler(req, res) {
   try {
-    const cookies = cookie.parse(req.headers.cookie || "");
-    const token = cookies.token;
+    const token = req.cookies?.token;
 
     if (!token) {
       return res.status(401).json({ error: "NO_TOKEN" });
