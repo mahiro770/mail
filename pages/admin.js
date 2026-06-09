@@ -1,4 +1,4 @@
-import { supabase } from "./supabaseClient";
+import { supabase } from '../../lib/supabase';
 
 // ログイン
 export async function login(email) {
