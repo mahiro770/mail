@@ -6,7 +6,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-
+ // ログイン処理
   const handleLogin = async () => {
     if (loading) return;
     setErrorMessage("");
