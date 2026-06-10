@@ -355,6 +355,7 @@ const styles = {
 export default function Home() {
   const [authChecked, setAuthChecked] = useState(false);
   const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [projects, setProjects] = useState([]);
   const [selectedProject, setSelectedProject] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -395,15 +396,7 @@ export default function Home() {
   checkLogin();
 }, []);
 
-if (!authChecked) {
-  return <div>認証チェック中...</div>;
-}
-
-if (!user) {
-  return <div>ログインが必要です</div>;
-}
-
-  // 🕒 検索履歴用のStateと保存関数（内部的な保存枠は余裕を持って20件に広げています）
+// 🕒 検索履歴用のStateと保存関数（内部的な保存枠は余裕を持って20件に広げています）
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [history, setHistory] = useState(() => {
     if (typeof window !== "undefined") {
@@ -825,6 +818,7 @@ if (!user) {
       }
     }, [project.attachments]);
 
+
     return (
       <div style={{ ...styles.card, opacity: project.isClosed ? 0.7 : 1 }}>
         <div style={{ fontSize: "0.7rem", color: "#a0aec0", marginBottom: 5 }}>
@@ -984,6 +978,14 @@ if (!user) {
       </div>
     );
   };
+
+  if (!authChecked) {
+  return <div>認証チェック中...</div>;
+}
+
+if (!user) {
+  return <div>ログインが必要です</div>;
+}
 
   return (
     <div style={styles.page}>
