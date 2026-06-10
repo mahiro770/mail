@@ -37,17 +37,15 @@ export default function LoginPage() {
       if (res.headers.get("content-type")?.includes("application/json")) {
         result = await res.json().catch(() => null);
       }
-
+      if (!res.ok) {
+        setErrorMessage(result?.error ?? "ログインに失敗しました");
+        return;
+      }
       // 初回ログイン判定
       if (result?.firstLogin) {
         router.push(
           `/setup-password?email=${encodeURIComponent(email.trim())}`,
         );
-        return;
-      }
-
-      if (!res.ok) {
-        setErrorMessage(result?.error ?? "ログインに失敗しました");
         return;
       }
 

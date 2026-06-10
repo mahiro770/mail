@@ -1,20 +1,44 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 
 export default function SetupPasswordPage() {
   const router = useRouter();
-  const { email } = router.query;
-  const safeEmail =
-  typeof email === "string" ? email : Array.isArray(email) ? email[0] : "";
+
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(true);
 
+  // セッション確認（重要）
+  useEffect(() => {
+    const checkSession = async () => {
+      try {
+        const res = await fetch("/api/me", {
+          credentials: "include",
+        });
 
-  if (!safeEmail) {
-    return <div>メールアドレス取得中...</div>;
-  }
+        const data = await res.json();
+
+        if (!res.ok || !data?.email) {
+          router.push("/login");
+          return;
+        }
+
+        // 初回ログインじゃない人も弾く（任意）
+        if (!data.firstLogin) {
+          router.push("/");
+          return;
+        }
+
+        setChecking(false);
+      } catch {
+        router.push("/login");
+      }
+    };
+
+    checkSession();
+  }, []);
 
   const handleSetupPassword = async () => {
     setErrorMessage("");
@@ -24,45 +48,41 @@ export default function SetupPasswordPage() {
       return;
     }
 
-    if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{8,}$/.test(password)) {
-      setErrorMessage(
-        "パスワードは8文字以上で、大文字・小文字・数字を含めてください",
-      );
+    if (
+      !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{8,}$/.test(password)
+    ) {
+      setErrorMessage("パスワード要件を満たしていません");
       return;
     }
 
     try {
       setLoading(true);
 
-      
-      const response = await fetch("/api/setup-password", {
+      const res = await fetch("/api/setup-password", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          email: safeEmail,
-          password,
-        }),
+        credentials: "include",
+        body: JSON.stringify({ password }),
       });
 
-      const result = await response.json();
+      const result = await res.json();
 
-      if (!response.ok) {
-        setErrorMessage(result.error);
-        setLoading(false);
+      if (!res.ok) {
+        setErrorMessage(result?.error ?? "エラーが発生しました");
         return;
       }
 
-      alert("パスワードを設定しました");
-
-      router.push("/login");
-    } catch (err) {
+      router.push("/login?setup=success");
+    } catch {
       setErrorMessage("設定に失敗しました");
     } finally {
       setLoading(false);
     }
   };
+
+  if (checking) return <p>確認中...</p>;
 
   return (
     <div>
@@ -82,7 +102,7 @@ export default function SetupPasswordPage() {
         onChange={(e) => setConfirmPassword(e.target.value)}
       />
 
-      {errorMessage && <div style={{ color: "red" }}>{errorMessage}</div>}
+      {errorMessage && <p style={{ color: "red" }}>{errorMessage}</p>}
 
       <button
         onClick={handleSetupPassword}

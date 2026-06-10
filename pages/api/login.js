@@ -3,19 +3,23 @@ import crypto from "crypto";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method Not Allowed" });
+    return res.status(405).json({
+      status: "error",
+      error: "Method Not Allowed",
+    });
   }
 
   const { email, password } = req.body;
 
   if (!email || !password) {
-    return res.status(400).json({ error: "メールアドレスとパスワードを入力してください" });
+    return res.status(400).json({
+      status: "error",
+      error: "メールアドレスとパスワードを入力してください",
+    });
   }
 
-  
-
   try {
-    // 管理者チェック
+    // ユーザー取得
     const { data, error } = await supabaseAdmin
       .from("admins")
       .select("user_email, password_hash, salt")
@@ -23,49 +27,56 @@ export default async function handler(req, res) {
       .single();
 
     if (error || !data) {
-      return res.status(401).json({ error: "管理者ではないか、メールアドレスが間違っています" });
+      return res.status(401).json({
+        status: "error",
+        error: "管理者ではないか、メールアドレスが間違っています",
+      });
     }
 
+    // 初回ログイン判定
     if (!data.password_hash || !data.salt) {
-        return res.status(200).json({
-          firstLogin: true,
-        });
-      }
+      return res.status(200).json({
+        status: "first_login_required",
+      });
+    }
 
-
+    // password hash生成
     const inputHash = crypto
-    .pbkdf2Sync(password, data.salt, 100000, 64, "sha512")
-    .toString("hex");
+      .pbkdf2Sync(password, data.salt, 100000, 64, "sha512")
+      .toString("hex");
 
-    if (inputHash.length !== data.password_hash.length) {
-  return res.status(401).json({
-    error: "パスワードが間違っています",
-  });
-}
 
-    const isMatch = crypto.timingSafeEqual(
-      Buffer.from(inputHash, "hex"),
-      Buffer.from(data.password_hash, "hex")
-    );  
+    let isMatch = false;
+
+    try {
+      isMatch = crypto.timingSafeEqual(
+        Buffer.from(inputHash, "hex"),
+        Buffer.from(data.password_hash, "hex")
+      );
+    } catch (e) {
+      return res.status(401).json({
+        status: "error",
+        error: "パスワードが間違っています",
+      });
+    }
 
     if (!isMatch) {
-      return res.status(401).json({ error: "パスワードが間違っています" });
+      return res.status(401).json({
+        status: "error",
+        error: "パスワードが間違っています",
+      });
     }
 
-    // 既存トークン取得（Next.js標準）
+    // 既存セッション削除
     const oldToken = req.cookies?.token;
 
     if (oldToken) {
-      await supabaseAdmin
-        .from("sessions")
-        .delete()
-        .eq("token", oldToken);
+      await supabaseAdmin.from("sessions").delete().eq("token", oldToken);
     }
 
     // 新規トークン発行
     const token = crypto.randomUUID();
 
-    // セッション保存
     const { error: sessionError } = await supabaseAdmin
       .from("sessions")
       .insert({
@@ -74,10 +85,13 @@ export default async function handler(req, res) {
       });
 
     if (sessionError) {
-      return res.status(500).json({ error: "セッション作成に失敗しました" });
+      return res.status(500).json({
+        status: "error",
+        error: "セッション作成に失敗しました",
+      });
     }
 
-    // cookie設定（Next.js標準）
+    // cookie設定
     const isProd = process.env.NODE_ENV === "production";
 
     res.setHeader(
@@ -87,14 +101,16 @@ export default async function handler(req, res) {
       } Max-Age=${60 * 60 * 24 * 7}`
     );
 
+    // 成功
     return res.status(200).json({
-      success: true,
+      status: "success",
       email: data.user_email,
     });
   } catch (err) {
     console.error("LOGIN ERROR:", err);
 
     return res.status(500).json({
+      status: "error",
       error: "サーバーエラー",
     });
   }
