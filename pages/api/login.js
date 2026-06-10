@@ -16,7 +16,7 @@ export default async function handler(req, res) {
     // 管理者チェック
     const { data, error } = await supabaseAdmin
       .from("admins")
-      .select("id, user_email")
+      .select("user_email")
       .eq("user_email", email.trim())
       .single();
 

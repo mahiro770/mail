@@ -403,7 +403,6 @@ if (!user) {
   return <div>ログインが必要です</div>;
 }
 
-return <div>ログイン済み画面</div>;
   // 🕒 検索履歴用のStateと保存関数（内部的な保存枠は余裕を持って20件に広げています）
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [history, setHistory] = useState(() => {
