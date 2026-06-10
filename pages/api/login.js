@@ -6,22 +6,50 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method Not Allowed" });
   }
 
-  const { email } = req.body;
+  const { email, password } = req.body;
 
-  if (!email) {
-    return res.status(400).json({ error: "メールアドレスを入力してください" });
+  if (!email || !password) {
+    return res.status(400).json({ error: "メールアドレスとパスワードを入力してください" });
   }
+
+  
 
   try {
     // 管理者チェック
     const { data, error } = await supabaseAdmin
       .from("admins")
-      .select("user_email")
+      .select("user_email, password_hash, salt")
       .eq("user_email", email.trim())
       .single();
 
     if (error || !data) {
-      return res.status(401).json({ error: "管理者ではありません" });
+      return res.status(401).json({ error: "管理者ではないか、メールアドレスが間違っています" });
+    }
+
+    if (!data.password_hash || !data.salt) {
+        return res.status(200).json({
+          firstLogin: true,
+        });
+      }
+
+
+    const inputHash = crypto
+    .pbkdf2Sync(password, data.salt, 100000, 64, "sha512")
+    .toString("hex");
+
+    if (inputHash.length !== data.password_hash.length) {
+  return res.status(401).json({
+    error: "パスワードが間違っています",
+  });
+}
+
+    const isMatch = crypto.timingSafeEqual(
+      Buffer.from(inputHash, "hex"),
+      Buffer.from(data.password_hash, "hex")
+    );  
+
+    if (!isMatch) {
+      return res.status(401).json({ error: "パスワードが間違っています" });
     }
 
     // 既存トークン取得（Next.js標準）

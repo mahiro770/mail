@@ -4,15 +4,16 @@ import { useRouter } from "next/router";
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
- // ログイン処理
+  // ログイン処理
   const handleLogin = async () => {
     if (loading) return;
     setErrorMessage("");
 
-    if (!email) {
-      setErrorMessage("メールアドレスを入力してください");
+    if (!email || !password) {
+      setErrorMessage("メールアドレスとパスワードを入力してください");
       return;
     }
 
@@ -25,22 +26,31 @@ export default function LoginPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          email,
+          email: email.trim(),
+          password,
         }),
         credentials: "include",
       });
 
-  let result = null;
+      let result = null;
 
-if (res.headers.get("content-type")?.includes("application/json")) {
-  result = await res.json().catch(() => null);
-}
+      if (res.headers.get("content-type")?.includes("application/json")) {
+        result = await res.json().catch(() => null);
+      }
 
-if (!res.ok) {
-  setErrorMessage(result?.error ?? "ログインに失敗しました");
-return;
-}
-      
+      // 初回ログイン判定
+      if (result?.firstLogin) {
+        router.push(
+          `/setup-password?email=${encodeURIComponent(email.trim())}`,
+        );
+        return;
+      }
+
+      if (!res.ok) {
+        setErrorMessage(result?.error ?? "ログインに失敗しました");
+        return;
+      }
+
       router.push("/");
     } catch (error) {
       console.error(error);
@@ -66,20 +76,40 @@ return;
           onChange={(e) => setEmail(e.target.value)}
           style={styles.input}
         />
+        <input
+          type="password"
+          placeholder="パスワード"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          style={styles.input}
+        />
 
         {errorMessage && <div style={styles.error}>{errorMessage}</div>}
 
         <button
           onClick={handleLogin}
-          disabled={loading || !email}
+          disabled={loading || !email.trim() || !password}
           style={{
             ...styles.button,
-            opacity: loading || !email ? 0.7 : 1,
-            cursor: loading || !email ? "not-allowed" : "pointer",
+            opacity: loading || !email.trim() || !password ? 0.7 : 1,
+            cursor:
+              loading || !email.trim() || !password ? "not-allowed" : "pointer",
           }}
         >
           {loading ? "ログイン中..." : "ログイン"}
         </button>
+        <div style={{ textAlign: "center", marginTop: 12 }}>
+          <a
+            href="/setup-password"
+            style={{
+              fontSize: "0.85rem",
+              color: "#3182ce",
+              textDecoration: "underline",
+            }}
+          >
+            初回ログインの方はこちら
+          </a>
+        </div>
       </div>
     </div>
   );
