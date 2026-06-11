@@ -166,4 +166,11 @@ const style = {
     color: "#e53e3e",
     fontSize: "0.9rem",
   },
+
+  hint: {
+  fontSize: "0.85rem",
+  color: "#718096",
+  lineHeight: "1.5",
+  marginTop: -8,
+},
 };
