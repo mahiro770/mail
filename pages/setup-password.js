@@ -90,7 +90,12 @@ export default function SetupPasswordPage() {
       <button
         onClick={handleSetupPassword}
         disabled={loading || !password || !confirmPassword}
-        style={style.button}
+        style={{
+            ...styles.button,
+            opacity: loading || !email.trim() || !password ? 0.7 : 1,
+            cursor:
+              loading || !email.trim() || !password ? "not-allowed" : "pointer",
+          }}
       >
         {loading ? "設定中..." : "パスワード設定"}
       </button>
@@ -116,7 +121,7 @@ const style = {
     backgroundColor: "#fff",
     padding: 30,
     borderRadius: 12,
-    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.8)",
+    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.5)",
     display: "flex",  
     flexDirection: "column",
     gap: 16,
