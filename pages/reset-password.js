@@ -100,6 +100,17 @@ export default function SetupPasswordPage() {
         >
           {loading ? "設定中..." : "パスワード設定"}
         </button>
+        <p style={style.hint}>
+          パスワード条件：
+          <br />
+          {password.length >= 8 ? "✅" : "❌"} 8文字以上
+          <br />
+          {/[A-Z]/.test(password) ? "✅" : "❌"} 大文字
+          <br />
+          {/[a-z]/.test(password) ? "✅" : "❌"} 小文字
+          <br />
+          {/\d/.test(password) ? "✅" : "❌"} 数字
+        </p>
       </div>
     </div>
   );
