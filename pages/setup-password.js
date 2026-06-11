@@ -104,6 +104,7 @@ export default function SetupPasswordPage() {
 >
   {loading ? "設定中..." : "パスワード設定"}
 </button>
+
     </div>
   </div>
   );
@@ -149,7 +150,7 @@ const style = {
     padding: 12,
     borderRadius: 8, 
     border: "none",
-    backgroundColor: "#0e151f",
+    backgroundColor: "#1a365d",
     color: "#fff",
     fontWeight: "bold",
     fontSize: "1rem",
