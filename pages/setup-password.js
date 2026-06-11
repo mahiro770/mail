@@ -88,17 +88,22 @@ export default function SetupPasswordPage() {
       {errorMessage && <p style={style.error}>{errorMessage}</p>}
 
       <button
-        onClick={handleSetupPassword}
-        disabled={loading || !password || !confirmPassword}
-        style={{
-            ...styles.button,
-            opacity: loading || !email.trim() || !password ? 0.7 : 1,
-            cursor:
-              loading || !email.trim() || !password ? "not-allowed" : "pointer",
-          }}
-      >
-        {loading ? "設定中..." : "パスワード設定"}
-      </button>
+  onClick={handleSetupPassword}
+  disabled={loading || !email.trim() || !password || !confirmPassword}
+  style={{
+    ...style.button,
+    opacity:
+      loading || !email.trim() || !password || !confirmPassword
+        ? 0.7
+        : 1,
+    cursor:
+      loading || !email.trim() || !password || !confirmPassword
+        ? "not-allowed"
+        : "pointer",
+  }}
+>
+  {loading ? "設定中..." : "パスワード設定"}
+</button>
     </div>
   </div>
   );
@@ -144,7 +149,7 @@ const style = {
     padding: 12,
     borderRadius: 8, 
     border: "none",
-    backgroundColor: "#1a365d",
+    backgroundColor: "#0e151f",
     color: "#fff",
     fontWeight: "bold",
     fontSize: "1rem",
