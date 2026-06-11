@@ -126,7 +126,7 @@ const style = {
     backgroundColor: "#fff",
     padding: 30,
     borderRadius: 12,
-    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.5)",
+    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.08)",
     display: "flex",  
     flexDirection: "column",
     gap: 16,
