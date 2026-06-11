@@ -3,23 +3,18 @@ import { useRouter } from "next/router";
 
 export default function SetupPasswordPage() {
   const router = useRouter();
-
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [loading, setLoading] = useState(false);
-  const { email } = router.query;
+  
 
-  const safeEmail =
-    typeof email === "string" ? email : Array.isArray(email) ? email[0] : "";
+  
 
   const handleSetupPassword = async () => {
     setErrorMessage("");
 
-    if (!safeEmail) {
-  setErrorMessage("メールアドレスが取得できません");
-  return;
-}
 
     if (password !== confirmPassword) {
       setErrorMessage("パスワードが一致しません");
@@ -41,7 +36,7 @@ export default function SetupPasswordPage() {
         },
         credentials: "include",
         body: JSON.stringify({
-          email: safeEmail,
+          email: email.trim(),
           password,
         }),
       });
@@ -64,6 +59,12 @@ export default function SetupPasswordPage() {
   return (
     <div>
       <h1>初回パスワード設定</h1>
+      <input
+        type="email"
+        placeholder="メールアドレス"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+      />
 
       <input
         type="password"

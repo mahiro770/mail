@@ -8,46 +8,23 @@ export default async function handler(req, res) {
     });
   }
 
-  const { password } = req.body;
+  const { email, password } = req.body;
 
-  if (!password) {
+  if (!email || !password) {
     return res.status(400).json({
-      error: "パスワードが必要です",
+      error: "メールアドレスとパスワードが必要です",
     });
   }
 
   try {
-    // sessionからユーザー特定
-    const token = req.cookies?.token;
-
-    if (!token) {
-      return res.status(401).json({
-        error: "未ログインです",
-      });
-    }
-
-    const { data: session } = await supabaseAdmin
-      .from("sessions")
-      .select("user_email")
-      .eq("token", token)
-      .single();
-
-    if (!session) {
-      return res.status(401).json({
-        error: "セッションが無効です",
-      });
-    }
-
-    const email = session.user_email;
-
     // admin取得
-    const { data } = await supabaseAdmin
+    const { data, error: fetchError } = await supabaseAdmin
       .from("admins")
       .select("user_email, password_hash, salt")
-      .eq("user_email", email)
+      .eq("user_email", email.trim())
       .single();
 
-    if (!data) {
+    if (fetchError || !data) {
       return res.status(404).json({
         error: "ユーザーが見つかりません",
       });
@@ -61,9 +38,7 @@ export default async function handler(req, res) {
     }
 
     // 強度チェック
-    if (
-      !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{8,}$/.test(password)
-    ) {
+    if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{8,}$/.test(password)) {
       return res.status(400).json({
         error: "パスワード要件を満たしていません",
       });
@@ -83,7 +58,7 @@ export default async function handler(req, res) {
         password_hash: passwordHash,
         salt,
       })
-      .eq("user_email", email);
+      .eq("user_email", email.trim());
 
     if (error) {
       return res.status(500).json({
