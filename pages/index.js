@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/router";
 
 const LINK_STYLE = { color: "#3182ce", textDecoration: "underline" };
 // 1ページあたりの表示件数
@@ -374,29 +375,45 @@ export default function Home() {
   const [deleteTargetId, setDeleteTargetId] = useState(null);
   const [selectedRegion, setSelectedRegion] = useState("すべて");
   useEffect(() => {
-  const checkLogin = async () => {
+    const checkLogin = async () => {
+      try {
+        const res = await fetch("/api/me", {
+          credentials: "include",
+        });
+
+        if (!res.ok) {
+          window.location.href = "/login";
+          return;
+        }
+
+        const data = await res.json();
+        setUser(data);
+        setAuthChecked(true);
+      } catch {
+        window.location.href = "/login";
+      }
+    };
+
+    checkLogin();
+  }, []);
+
+  const router = useRouter();
+
+  const handleLogout = async () => {
     try {
-      const res = await fetch("/api/me", {
+      await fetch("/api/logout", {
+        method: "POST",
         credentials: "include",
       });
 
-      if (!res.ok) {
-        window.location.href = "/login";
-        return;
-      }
-
-      const data = await res.json();
-      setUser(data);
-      setAuthChecked(true);
-    } catch {
-      window.location.href = "/login";
+      router.push("/login");
+    } catch (error) {
+      console.error(error);
+      alert("ログアウトに失敗しました");
     }
   };
 
-  checkLogin();
-}, []);
-
-// 🕒 検索履歴用のStateと保存関数（内部的な保存枠は余裕を持って20件に広げています）
+  // 🕒 検索履歴用のStateと保存関数（内部的な保存枠は余裕を持って20件に広げています）
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [history, setHistory] = useState(() => {
     if (typeof window !== "undefined") {
@@ -421,7 +438,6 @@ export default function Home() {
       return next;
     });
   };
-
 
   // supabaseから添付ファイル情報を取得して、 機械語（バイナリデータ）をファイルに復元してダウンロードする
   const handleDownloadFile = async (event, fileUrl, fileName) => {
@@ -818,7 +834,6 @@ export default function Home() {
       }
     }, [project.attachments]);
 
-
     return (
       <div style={{ ...styles.card, opacity: project.isClosed ? 0.7 : 1 }}>
         <div style={{ fontSize: "0.7rem", color: "#a0aec0", marginBottom: 5 }}>
@@ -980,12 +995,12 @@ export default function Home() {
   };
 
   if (!authChecked) {
-  return <div>認証チェック中...</div>;
-}
+    return <div>認証チェック中...</div>;
+  }
 
-if (!user) {
-  return <div>ログインが必要です</div>;
-}
+  if (!user) {
+    return <div>ログインが必要です</div>;
+  }
 
   return (
     <div style={styles.page}>
@@ -1072,6 +1087,21 @@ if (!user) {
                   </button>
                 );
               })}
+              <button
+                onClick={handleLogout}
+                style={{
+                  marginLeft: 20,
+                  padding: "8px 16px",
+                  borderRadius: 6,
+                  border: "1px solid #e53e3e",
+                  background: "#fff",
+                  color: "#e53e3e",
+                  cursor: "pointer",
+                  fontWeight: "bold",
+                }}
+              >
+                ログアウト
+              </button>
             </div>
           )}
         </div>
