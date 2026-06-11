@@ -37,6 +37,7 @@ export default async function handler(req, res) {
     if (!data.password_hash || !data.salt) {
       return res.status(200).json({
         firstLogin: true,
+        message: "初回ログインが必要です。パスワードを設定してください。",
       });
     }
 
