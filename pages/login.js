@@ -41,13 +41,7 @@ export default function LoginPage() {
         setErrorMessage(result?.error ?? "ログインに失敗しました");
         return;
       }
-      // 初回ログイン判定
-      if (result?.firstLogin) {
-        router.push(
-          `/setup-password?email=${encodeURIComponent(email.trim())}`,
-        );
-        return;
-      }
+      
 
       router.push("/");
     } catch (error) {
