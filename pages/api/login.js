@@ -36,7 +36,7 @@ export default async function handler(req, res) {
     // 初回ログイン判定
     if (!data.password_hash || !data.salt) {
       return res.status(200).json({
-        status: "first_login_required",
+        firstLogin: true,
       });
     }
 
