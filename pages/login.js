@@ -12,8 +12,12 @@ export default function LoginPage() {
     if (loading) return;
     setErrorMessage("");
 
-    if (!email || !password) {
+    if (!email && !password) {
       setErrorMessage("メールアドレスとパスワードを入力してください");
+      return;
+    }
+    if(!password) {
+      setErrorMessage("初回ログインを行ってください。");
       return;
     }
 
