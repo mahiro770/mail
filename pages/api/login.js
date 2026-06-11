@@ -29,15 +29,15 @@ export default async function handler(req, res) {
     if (error || !data) {
       return res.status(401).json({
         status: "error",
-        error: "管理者ではないか、メールアドレスが間違っています",
+        error: "NOT_ADMIN",
       });
     }
 
     // 初回ログイン判定
     if (!data.password_hash || !data.salt) {
-      return res.status(200).json({
-        firstLogin: true,
-        message: "初回ログインが必要です。パスワードを設定してください。",
+      return res.status(401).json({
+    status: "error",
+    error: "NO_PASSWORD",
       });
     }
 
@@ -57,14 +57,14 @@ export default async function handler(req, res) {
     } catch (e) {
       return res.status(401).json({
         status: "error",
-        error: "パスワードが間違っています",
+        error: "INVALID_PASSWORD",
       });
     }
 
     if (!isMatch) {
       return res.status(401).json({
         status: "error",
-        error: "パスワードが間違っています",
+        error: "INVALID_PASSWORD",
       });
     }
 

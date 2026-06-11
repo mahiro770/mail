@@ -16,10 +16,6 @@ export default function LoginPage() {
       setErrorMessage("メールアドレスとパスワードを入力してください");
       return;
     }
-    if(!password) {
-      setErrorMessage("初回ログインを行ってください。");
-      return;
-    }
 
     try {
       setLoading(true);
@@ -42,10 +38,25 @@ export default function LoginPage() {
         result = await res.json().catch(() => null);
       }
       if (!res.ok) {
-        setErrorMessage(result?.error ?? "ログインに失敗しました");
+        switch (result?.error) {
+          case "NOT_ADMIN":
+            setErrorMessage("管理者ではありません");
+            break;
+
+          case "NO_PASSWORD":
+            setErrorMessage("初回ログインをしてください");
+            break;
+
+          case "INVALID_PASSWORD":
+            setErrorMessage("パスワードが一致しません");
+            break;
+
+          default:
+            setErrorMessage("ログインに失敗しました");
+        }
+
         return;
       }
-      
 
       router.push("/");
     } catch (error) {

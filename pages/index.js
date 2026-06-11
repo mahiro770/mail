@@ -355,7 +355,6 @@ const styles = {
 export default function Home() {
   const [authChecked, setAuthChecked] = useState(false);
   const [user, setUser] = useState(null);
-  const [password, setPassword] = useState(null); 
   const [loading, setLoading] = useState(true);
   const [projects, setProjects] = useState([]);
   const [selectedProject, setSelectedProject] = useState(null);
@@ -986,10 +985,6 @@ export default function Home() {
 
 if (!user) {
   return <div>ログインが必要です</div>;
-}
-
-if(!password){
-  return <div>パスワードを設定してください</div>;
 }
 
   return (
