@@ -117,6 +117,18 @@ export default function LoginPage() {
             初回ログインの方はこちら
           </a>
         </div>
+        <div style={{ textAlign: "center", marginTop: 12 }}>
+          <a
+            href="/reset-password"
+            style={{
+              fontSize: "0.85rem",
+              color: "#3182ce",
+              textDecoration: "underline",
+            }}
+          >
+            パスワードを忘れた方はこちら
+          </a>
+        </div>
       </div>
     </div>
   );
