@@ -57,13 +57,16 @@ export default function SetupPasswordPage() {
   };
 
   return (
-    <div>
-      <h1>初回パスワード設定</h1>
-      <input
-        type="email"
-        placeholder="メールアドレス"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
+    <div style={style.page}>
+      <div style={style.card}>
+        <h1 style={style.title}>初回パスワード設定</h1>
+
+        <input
+          type="email"
+          placeholder="メールアドレス"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          style={style.input}
       />
 
       <input
@@ -71,6 +74,7 @@ export default function SetupPasswordPage() {
         placeholder="パスワード"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
+        style={style.input}
       />
 
       <input
@@ -78,16 +82,71 @@ export default function SetupPasswordPage() {
         placeholder="パスワード確認"
         value={confirmPassword}
         onChange={(e) => setConfirmPassword(e.target.value)}
+        style={style.input}
       />
 
-      {errorMessage && <p style={{ color: "red" }}>{errorMessage}</p>}
+      {errorMessage && <p style={style.error}>{errorMessage}</p>}
 
       <button
         onClick={handleSetupPassword}
         disabled={loading || !password || !confirmPassword}
+        style={style.button}
       >
         {loading ? "設定中..." : "パスワード設定"}
       </button>
     </div>
+  </div>
   );
 }
+
+const style = {
+  page: {
+    minHeight: "100vh",
+    backgroundColor: "#f7fafc",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+    fontFamily: "sans-serif",
+  },
+
+  card: {
+    width: "100%",
+    maxWidth: 500,
+    backgroundColor: "#fff",
+    padding: 30,
+    borderRadius: 12,
+    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.8)",
+    display: "flex",  
+    flexDirection: "column",
+    gap: 16,
+  },
+
+  title: {
+    margin: 0,
+    textAlign: "center",
+    color: "#1a365d",
+  },
+
+  input: {
+    padding: 12,
+    borderRadius: 8,
+    border: "1px solid #cbd5e0",
+    fontSize: "1rem",
+  },
+
+  button: {
+    padding: 12,
+    borderRadius: 8, 
+    border: "none",
+    backgroundColor: "#1a365d",
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: "1rem",
+  },
+
+  error: {
+    color: "#e53e3e",
+    fontSize: "0.9rem",
+  },
+};
