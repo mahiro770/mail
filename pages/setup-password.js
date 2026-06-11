@@ -8,13 +8,9 @@ export default function SetupPasswordPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [loading, setLoading] = useState(false);
-  
-
-  
 
   const handleSetupPassword = async () => {
     setErrorMessage("");
-
 
     if (password !== confirmPassword) {
       setErrorMessage("パスワードが一致しません");
@@ -67,46 +63,56 @@ export default function SetupPasswordPage() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           style={style.input}
-      />
+        />
 
-      <input
-        type="password"
-        placeholder="パスワード"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        style={style.input}
-      />
+        <input
+          type="password"
+          placeholder="パスワード"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          style={style.input}
+        />
 
-      <input
-        type="password"
-        placeholder="パスワード確認"
-        value={confirmPassword}
-        onChange={(e) => setConfirmPassword(e.target.value)}
-        style={style.input}
-      />
+        <input
+          type="password"
+          placeholder="パスワード確認"
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          style={style.input}
+        />
 
-      {errorMessage && <p style={style.error}>{errorMessage}</p>}
+        {errorMessage && <p style={style.error}>{errorMessage}</p>}
 
-      <button
-  onClick={handleSetupPassword}
-  disabled={loading || !email.trim() || !password || !confirmPassword}
-  style={{
-    ...style.button,
-    opacity:
-      loading || !email.trim() || !password || !confirmPassword
-        ? 0.7
-        : 1,
-    cursor:
-      loading || !email.trim() || !password || !confirmPassword
-        ? "not-allowed"
-        : "pointer",
-  }}
->
-  {loading ? "設定中..." : "パスワード設定"}
-</button>
-
+        <button
+          onClick={handleSetupPassword}
+          disabled={loading || !email.trim() || !password || !confirmPassword}
+          style={{
+            ...style.button,
+            opacity:
+              loading || !email.trim() || !password || !confirmPassword
+                ? 0.7
+                : 1,
+            cursor:
+              loading || !email.trim() || !password || !confirmPassword
+                ? "not-allowed"
+                : "pointer",
+          }}
+        >
+          {loading ? "設定中..." : "パスワード設定"}
+        </button>
+        <p style={style.hint}>
+          パスワード条件：
+          <br />
+          {password.length >= 8 ? "✅" : "❌"} 8文字以上
+          <br />
+          {/[A-Z]/.test(password) ? "✅" : "❌"} 大文字
+          <br />
+          {/[a-z]/.test(password) ? "✅" : "❌"} 小文字
+          <br />
+          {/\d/.test(password) ? "✅" : "❌"} 数字
+        </p>
+      </div>
     </div>
-  </div>
   );
 }
 
@@ -128,7 +134,7 @@ const style = {
     padding: 30,
     borderRadius: 12,
     boxShadow: "0 4px 12px rgba(0, 0, 0, 0.08)",
-    display: "flex",  
+    display: "flex",
     flexDirection: "column",
     gap: 16,
   },
@@ -148,7 +154,7 @@ const style = {
 
   button: {
     padding: 12,
-    borderRadius: 8, 
+    borderRadius: 8,
     border: "none",
     backgroundColor: "#1a365d",
     color: "#fff",
