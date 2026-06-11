@@ -168,9 +168,9 @@ const style = {
   },
 
   hint: {
-  fontSize: "0.85rem",
-  color: "#718096",
-  lineHeight: "1.5",
+  fontSize: "1.5rem",
+  color: "#3b424d",
+  lineHeight: "2.0",
   marginTop: -8,
 },
 };
