@@ -21,6 +21,8 @@ export const styles = {
     height: 60,
     padding: "0 20px",
     alignItems: "center",
+    // 画面幅が狭い時にタブ文字が折り返して崩れないよう、横スクロールで対応する
+    overflowX: "auto",
   },
   sidebar: { width: 220, flexShrink: 0 },
   // 案件カードの共通デザイン
