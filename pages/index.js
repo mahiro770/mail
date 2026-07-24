@@ -558,7 +558,12 @@ export default function Home() {
       <nav style={styles.nav}>
         <div style={{ ...styles.navInner, justifyContent: "space-between" }}>
           <div
-            style={{ display: "flex", height: "100%", alignItems: "center" }}
+            style={{
+              display: "flex",
+              height: "100%",
+              alignItems: "center",
+              flexShrink: 0,
+            }}
           >
             <div
               style={{
@@ -566,6 +571,7 @@ export default function Home() {
                 height: 35,
                 display: "flex",
                 alignItems: "center",
+                flexShrink: 0,
               }}
             >
               <img
@@ -596,6 +602,9 @@ export default function Home() {
                         ? "3px solid #00bfa5"
                         : "3px solid transparent",
                       boxSizing: "border-box",
+                      // 幅が狭まってもタブ文字が折り返さないようにする
+                      whiteSpace: "nowrap",
+                      flexShrink: 0,
                     }}
                   >
                     {tab.label}
@@ -614,6 +623,8 @@ export default function Home() {
                   height: "100%",
                   borderBottom: "3px solid transparent",
                   boxSizing: "border-box",
+                  whiteSpace: "nowrap",
+                  flexShrink: 0,
                 }}
               >
                 📊 グラフ
@@ -630,6 +641,8 @@ export default function Home() {
                   height: "100%",
                   borderBottom: "3px solid transparent",
                   boxSizing: "border-box",
+                  whiteSpace: "nowrap",
+                  flexShrink: 0,
                 }}
               >
                 🤖 automateの実行結果
@@ -639,7 +652,12 @@ export default function Home() {
           {/* 地域タブとログアウトボタンは「すべて」表示モードのときだけ表示する */}
           {viewMode === "all" && (
             <div
-              style={{ display: "flex", height: "100%", alignItems: "center" }}
+              style={{
+                display: "flex",
+                height: "100%",
+                alignItems: "center",
+                flexShrink: 0,
+              }}
             >
               {["すべて", "東日本", "中日本", "西日本"].map((regionName) => {
                 const isRegActive = selectedRegion === regionName;
@@ -664,6 +682,8 @@ export default function Home() {
                         ? "3px solid #1a365d"
                         : "3px solid transparent",
                       boxSizing: "border-box",
+                      whiteSpace: "nowrap",
+                      flexShrink: 0,
                     }}
                   >
                     {regionName}
@@ -681,6 +701,8 @@ export default function Home() {
                   color: "#e53e3e",
                   cursor: "pointer",
                   fontWeight: "bold",
+                  whiteSpace: "nowrap",
+                  flexShrink: 0,
                 }}
               >
                 ログアウト
